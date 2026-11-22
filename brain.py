@@ -39,6 +39,11 @@ WHEN = ("深夜", "夜里", "晚上", "傍晚", "下午", "早上", "春天", "�
 FEEL = ("崩塌", "心疼", "委屈", "害怕", "专注", "骄傲", "空虚", "空",
         "紧张", "震动", "笃定", "不甘心", "心酸", "狂喜", "舍不得",
         "发抖", "踏实", "暖", "新", "闷", "松", "乱", "压")
+# L3 前提否认：点名具体往事而我没有时，回声用户的措辞来否认前提——
+# 只回声、不新增内容（来源监控的诚实边界，§10 Johnson）。
+DENY_PREMISE = ("我没{what}这回事啊，你是不是记成别人了？",
+                "{what}？没发生过吧，我没印象。")
+
 # 情景锚点事物：出现在问句里即视为"在问一段个人往事"
 EPISODIC_THINGS = ("落榜", "个展", "暗房", "毕业创作", "艺考", "录取通知书",
                    "摄影奖", "怕黑", "抓周", "考摄影", "雪里", "旧相机", "相机",
@@ -352,10 +357,18 @@ class Brain:
                             mode, conf, top = "gist", 0.4, r["results"][0]
                         elif self._is_uncertain_claim(t):
                             if any(k in t for k in ("那次", "那回", "上回", "上次", "第一次")):
-                                # 点名具体往事而我没有：硬弃答，绝不编。
-                                # 说法走真实语料库（"没这事/我不知道"），别用
-                                # "这件事我没有记忆，不能编"这种系统腔。
-                                ans = self.voice.say("deny", {})
+                                # 点名具体往事而我没有：前提否认，绝不编。
+                                # 措辞回声用户的问法（"我没偷拿信用卡这回事啊，
+                                # 是不是记成别人了？"）——回声不是编造，新增细节才是。
+                                prem = self._deny_premise(t)
+                                ans = None
+                                if prem and re.search(r"(那次|那回|的时候)", t):
+                                    # 指控式叙述短语才回声；描述式短语（"收到的那台
+                                    # 无人机"）回声读着别扭，用通用否认
+                                    ans = DENY_PREMISE[self.turn_index % len(DENY_PREMISE)].format(
+                                        what=prem)
+                                if not ans:
+                                    ans = self.voice.say("deny", {"what": prem} if prem else {})
                                 answer = ans if ans else "这件事我没有记忆，不能编。"
                                 mode, conf = "abstain", 0.0
                             else:
@@ -686,6 +699,22 @@ class Brain:
     def _is_past_event_question(self, t):
         return self._is_past_event_question_text(t)
 
+    @staticmethod
+    def _deny_premise(t):
+        """从问句里取"指控的事件短语"——只回声用户的措辞。
+
+        "X那次…"取 X；无那次时取首个逗号前的分句（去"你"前缀）。
+        取不出干净的短语就返回 None（此时用通用否认，不硬凑）。
+        """
+        m = re.search(r"(?:你|你们)?(.+?)(?:那次|那回|的时候)", t)
+        if m:
+            prem = m.group(1).strip(" ，,")
+            if 2 <= len(prem) <= 14:
+                return prem
+        seg = re.split(r"[，,]", t)[0]
+        seg = re.sub(r"^(你|你们)", "", seg).rstrip("吗呢？? ").strip(" ，,")
+        return seg[:14] if len(seg) >= 2 else None
+
     def _is_uncertain_claim(self, t):
         """问句是否在确认一段"我可能没有"的私人往事。
 
@@ -697,7 +726,9 @@ class Brain:
             return False
         if KNOWLEDGE_PROBE.search(t):
             return False
-        personal = ("你" in t) or any(v in t for v in EPISODIC_THINGS)
+        # "那次/第一次"本身即私人叙事标记（第三人称转述也成立："初中军训晕倒那次"）
+        personal = (("你" in t) or any(v in t for v in EPISODIC_THINGS)
+                    or any(k in t for k in ("那次", "那回", "上回", "上次", "第一次")))
         if not personal:
             return False
         return bool(EPISODE_MARK.search(t) or VERB_GUO.search(t))

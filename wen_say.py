@@ -426,6 +426,12 @@ def realize(ep, voice, question="", arousal=0.4, valence=0.0, mode="recall",
                 v = v[2:]
             elif v.startswith("我") and len(v) - 1 >= 4:
                 v = v[1:]
+            if len(v) > room:
+                # 把字句省略主语是汉语的自然省略（"外婆把通知书包了三层红纸"
+                # →"把通知书包了三层红纸"），内容零损失（holdout7 w11 教训）
+                m = re.match(r"^(.{1,3}?)把(.+)$", v)
+                if m and len(m.group(2)) >= 4:
+                    v = m.group(2)
             cv = _clip_tail(v, room)
             if cv:
                 out_tails.append((d, cv, "plain"))
