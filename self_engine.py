@@ -555,10 +555,12 @@ class SelfEngine:
             self.regulation.interrupt(self.affect, now=now)
         return rum
 
-    def metacognitive(self, res=None, cue=None, domain=None, counter_evidence=0.0):
+    def metacognitive(self, res=None, cue=None, domain=None, counter_evidence=0.0,
+                      now=None, prev=None):
         if self.meta:
             return self.meta.evaluate(res, cue=cue, domain=domain,
-                                      counter_evidence=counter_evidence)
+                                      counter_evidence=counter_evidence,
+                                      now=now, prev=prev)
         conf = float((res or {}).get("confidence", 0.0)) if isinstance(res, dict) else 0.0
         conf = max(0.0, min(1.0, conf))
         return {"fok": conf, "tip": conf, "confidence": conf, "abstain": conf < 0.55}
@@ -593,7 +595,8 @@ class SelfEngine:
                 if any(g and g[:2] in text for g in goals):
                     gm = 1.0
                 self.workspace.push(item, salience=sal, now=now, goal_match=gm,
-                                    arousal=self.affect.state["arousal"])
+                                    arousal=self.affect.state["arousal"],
+                                    precision=kw.get("precision"))
         self.wm = self.wm[-7:]
         return self.wm[-1] if self.wm else None
 

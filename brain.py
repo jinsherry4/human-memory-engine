@@ -121,6 +121,9 @@ class Brain:
         self.turn_index = 0
         # 装备袋：上一轮声明句延续下来的约束片段
         self.context_frags = []
+        # §18.4 change-of-mind：上一轮的元认知评语与情景锚点
+        self._last_meta = None
+        self._last_anchor = None
         # 闲聊经验：每次对话轮次累积，影响说话方式
         self.casualness = 0.0
         # 真实聊天语料驱动的句式库（chat_voice.json）。没有语料时全部退回旧模板。
@@ -251,7 +254,15 @@ class Brain:
                         self.practice_gaps.append({"mode": "unknown", "text": raw})
                     else:
                         r = self._recall(t, cue, now=now)
-                        meta = self.eng.metacognitive(r, cue=(cue or r.get("cue") or {}))
+                        # §18.4 change-of-mind（Goueytes 2025）：锚点重叠时把上一次
+                        # 的元认知评语作为 prev 传入——弃答后来了新线索，置信应能回升
+                        anchor_now = [v for v in EPISODIC_THINGS if v in t]
+                        anchor_overlap = bool(self._last_anchor) and any(
+                            v in anchor_now for v in self._last_anchor)
+                        meta = self.eng.metacognitive(r, cue=(cue or r.get("cue") or {}),
+                                                      prev=(self._last_meta if anchor_overlap else None))
+                        self._last_meta = meta
+                        self._last_anchor = anchor_now or None
                         if r.get("best"):
                             m = self.eng.memories[r["best"]]
                             # R129：不再把 7 个字段拼成逗号清单
@@ -313,7 +324,8 @@ class Brain:
                                 now=now,
                                 goal_match=1.0 if any(
                                     g and str(g)[:2] in ep_text for g in self.goals) else 0.0,
-                                arousal=self.eng.affect.state.get("arousal", 0.35))
+                                arousal=self.eng.affect.state.get("arousal", 0.35),
+                                precision=max(0.0, min(1.0, float(meta.get("confidence", 0.5)))))
                             self.eng.wm_step(now=now)
                         elif r.get("gist_best") and not self._is_uncertain_claim(t):
                             # gist 兜底只给开放式回忆；点名具体往事而只有弱重合
