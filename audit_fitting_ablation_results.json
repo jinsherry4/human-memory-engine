@@ -1,0 +1,26 @@
+{
+  "practice.py": {
+    "full_rc": 0,
+    "full": "通过 32/32",
+    "lexical_only_rc": 0,
+    "lexical_only": "通过 27/32"
+  },
+  "practice_holdout.py": {
+    "full_rc": 0,
+    "full": "已教过的 10/10 通过；未教的 0 项只记录缺口。",
+    "lexical_only_rc": 0,
+    "lexical_only": "已教过的 10/10 通过；未教的 0 项只记录缺口。"
+  },
+  "practice_holdout2.py": {
+    "full_rc": 0,
+    "full": "通过 10/10",
+    "lexical_only_rc": 0,
+    "lexical_only": "通过 10/10"
+  },
+  "practice_holdout3.py": {
+    "full_rc": 0,
+    "full": "通过 10/10",
+    "lexical_only_rc": 0,
+    "lexical_only": "通过 10/10"
+  }
+}

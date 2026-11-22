@@ -1,0 +1,1176 @@
+{
+  "items": [
+    {
+      "id": "M01",
+      "claim": "SS/RS 双强度：SS 只增、RS 衰减、SS 延缓 RS 丢失",
+      "ref": "§5.7 Bjork",
+      "patterns": [
+        "ss_gain",
+        "ss\\s*\\+=",
+        "rs_regain",
+        "storage_strength"
+      ],
+      "hit_files": {
+        "human_memory.py": [
+          345,
+          389,
+          392,
+          708,
+          732
+        ]
+      },
+      "hit_lines": 5
+    },
+    {
+      "id": "M02",
+      "claim": "SS 增量随当前 RS 递减（desirable difficulty）",
+      "ref": "§5.7",
+      "patterns": [
+        "_ss_gain",
+        "rs_norm"
+      ],
+      "hit_files": {
+        "human_memory.py": [
+          345,
+          350,
+          353,
+          389,
+          708,
+          732
+        ]
+      },
+      "hit_lines": 6
+    },
+    {
+      "id": "M03",
+      "claim": "variable-rate 编码：rate ∝ Bayesian surprise",
+      "ref": "§5.2A Nagy",
+      "patterns": [
+        "surprise"
+      ],
+      "hit_files": {
+        "human_memory.py": [
+          7,
+          128,
+          187,
+          190,
+          220,
+          226,
+          233,
+          290,
+          303,
+          469,
+          494,
+          531
+        ],
+        "self_engine.py": [
+          270
+        ]
+      },
+      "hit_lines": 13
+    },
+    {
+      "id": "M04",
+      "claim": "层级压缩：先丢浅层感觉、保深层 gist",
+      "ref": "§5.2A Rugg",
+      "patterns": [
+        "SHALLOW_FIRST",
+        "ITEM_CORE"
+      ],
+      "hit_files": {
+        "human_memory.py": [
+          53,
+          54,
+          238,
+          241
+        ]
+      },
+      "hit_lines": 4
+    },
+    {
+      "id": "M05",
+      "claim": "多痕迹共存 episode_traces（原始仍在，特异线索可提取）",
+      "ref": "§5.3 Rugg/Shao",
+      "patterns": [
+        "traces"
+      ],
+      "hit_files": {
+        "human_memory.py": [
+          46,
+          133,
+          309,
+          396,
+          401,
+          443,
+          490,
+          493,
+          529,
+          530,
+          639,
+          733
+        ]
+      },
+      "hit_lines": 12
+    },
+    {
+      "id": "M06",
+      "claim": "更新 vs 新建 = 潜在原因推断",
+      "ref": "§5.3 Gershman2017",
+      "patterns": [
+        "cause_changed",
+        "update_or_new"
+      ],
+      "hit_files": {
+        "human_memory.py": [
+          408,
+          430,
+          432
+        ],
+        "self_engine.py": [
+          237,
+          240
+        ]
+      },
+      "hit_lines": 5
+    },
+    {
+      "id": "M07",
+      "claim": "非单调可塑 NMPH（共激活中→弱化、高→强化，U 形）",
+      "ref": "§5.3 Xue",
+      "patterns": [
+        "differentiate",
+        "integrate"
+      ],
+      "hit_files": {
+        "human_memory.py": [
+          411,
+          439,
+          454
+        ],
+        "insight_engine.py": [
+          146,
+          207
+        ]
+      },
+      "hit_lines": 5
+    },
+    {
+      "id": "M08",
+      "claim": "提取练习调度：间隔 + 正确答案反馈 + 5–7 次",
+      "ref": "§5.3 Roediger&Butler",
+      "patterns": [
+        "spaced",
+        "recall_schedule",
+        "feedback_correct"
+      ],
+      "hit_files": {
+        "human_memory.py": [
+          378,
+          388
+        ]
+      },
+      "hit_lines": 2
+    },
+    {
+      "id": "M09",
+      "claim": "再巩固更新窗口（提取后 labile，有界）",
+      "ref": "§5.8 Nader",
+      "patterns": [
+        "labile",
+        "reconsolid",
+        "restabil"
+      ],
+      "hit_files": {
+        "human_memory.py": [
+          11,
+          136,
+          310,
+          404,
+          441,
+          453,
+          700,
+          709
+        ]
+      },
+      "hit_lines": 8
+    },
+    {
+      "id": "M10",
+      "claim": "检索诱发遗忘 RIF：抑制竞争项",
+      "ref": "§5.3 Roediger",
+      "patterns": [
+        "\\brif\\b",
+        "suppress",
+        "inhibit.*compet"
+      ],
+      "hit_files": {
+        "affective_mind.py": [
+          27,
+          305
+        ]
+      },
+      "hit_lines": 2
+    },
+    {
+      "id": "M11",
+      "claim": "干扰项 interference 降低可及性",
+      "ref": "§5.2B Wixted",
+      "patterns": [
+        "inhibition",
+        "_inhib"
+      ],
+      "hit_files": {
+        "human_memory.py": [
+          139,
+          312,
+          323,
+          324,
+          343,
+          437,
+          719
+        ]
+      },
+      "hit_lines": 7
+    },
+    {
+      "id": "M12",
+      "claim": "来源监控：记得/想象/被告知/推断",
+      "ref": "§10 Rugg/Johnson",
+      "patterns": [
+        "source_monitor",
+        "imagined",
+        "source_kind"
+      ],
+      "hit_files": {
+        "affective_mind.py": [
+          208
+        ],
+        "brain.py": [
+          451
+        ],
+        "human_memory.py": [
+          13
+        ],
+        "insight_engine.py": [
+          249
+        ]
+      },
+      "hit_lines": 4
+    },
+    {
+      "id": "M13",
+      "claim": "raw append-only 原始证据库",
+      "ref": "§3.1",
+      "patterns": [
+        "append_jsonl",
+        "raw_path"
+      ],
+      "hit_files": {
+        "persistence.py": [
+          91
+        ],
+        "self_engine.py": [
+          23,
+          124,
+          129,
+          231,
+          232
+        ]
+      },
+      "hit_lines": 6
+    },
+    {
+      "id": "M14",
+      "claim": "四指标不合成：availability/accessibility/fidelity/confidence",
+      "ref": "§5.1",
+      "patterns": [
+        "accessible",
+        "fidelity"
+      ],
+      "hit_files": {
+        "affective_mind.py": [
+          209
+        ],
+        "human_memory.py": [
+          6,
+          131,
+          307,
+          391,
+          398,
+          403,
+          496,
+          622,
+          633,
+          634,
+          711
+        ]
+      },
+      "hit_lines": 12
+    },
+    {
+      "id": "O01",
+      "claim": "变换性回放：压缩/反转/重组，弱记忆回放更多",
+      "ref": "§6.1 Xue/CLS",
+      "patterns": [
+        "replay",
+        "prioritized"
+      ],
+      "hit_files": {
+        "brain.py": [
+          478
+        ],
+        "human_memory.py": [
+          89,
+          459,
+          462,
+          464,
+          491,
+          492,
+          497,
+          500,
+          501,
+          510,
+          524,
+          530
+        ],
+        "self_engine.py": [
+          249,
+          250
+        ]
+      },
+      "hit_lines": 15
+    },
+    {
+      "id": "O02",
+      "claim": "睡眠两阶段 SWS 系统巩固 / REM 突触巩固",
+      "ref": "§6.1 Diekelmann&Born",
+      "patterns": [
+        "SWS",
+        "REM",
+        "def sleep"
+      ],
+      "hit_files": {
+        "brain.py": [
+          471
+        ],
+        "human_memory.py": [
+          514,
+          515,
+          517,
+          518,
+          534
+        ],
+        "self_engine.py": [
+          252
+        ]
+      },
+      "hit_lines": 7
+    },
+    {
+      "id": "O03",
+      "claim": "反思蒸馏：importance 累积触发 + 洞察带证据引用",
+      "ref": "§6.2 GenerativeAgents",
+      "patterns": [
+        "importance",
+        "because_of",
+        "reflection"
+      ],
+      "hit_files": {
+        "self_engine.py": [
+          270
+        ],
+        "semantic_graph.py": [
+          7,
+          19,
+          42,
+          43,
+          55,
+          70,
+          223,
+          225,
+          229,
+          230,
+          232,
+          246,
+          248,
+          250
+        ]
+      },
+      "hit_lines": 15
+    },
+    {
+      "id": "O04",
+      "claim": "mind-wandering 自发模拟 / 孵化",
+      "ref": "§6.1 Smallwood",
+      "patterns": [
+        "incubat",
+        "mind_wander",
+        "residual"
+      ],
+      "hit_files": {
+        "insight_engine.py": [
+          9,
+          38,
+          123,
+          150,
+          157,
+          158,
+          229,
+          230,
+          233,
+          238,
+          239,
+          240,
+          241,
+          242
+        ]
+      },
+      "hit_lines": 14
+    },
+    {
+      "id": "E01",
+      "claim": "core affect PAD，tonic 慢衰减",
+      "ref": "§7.1 Barrett",
+      "patterns": [
+        "TAU_HOURS",
+        "valence"
+      ],
+      "hit_files": {
+        "affect.py": [
+          4,
+          13,
+          24,
+          25,
+          26,
+          50,
+          55,
+          62,
+          63,
+          73,
+          98,
+          108,
+          111,
+          119
+        ],
+        "affective_mind.py": [
+          17,
+          103,
+          257,
+          275,
+          282,
+          316,
+          327,
+          333,
+          335
+        ],
+        "brain.py": [
+          458
+        ],
+        "engine.py": [
+          111,
+          149
+        ],
+        "human_memory.py": [
+          31,
+          119,
+          125,
+          202,
+          216,
+          217,
+          226,
+          296,
+          299,
+          328,
+          612,
+          706
+        ],
+        "insight_engine.py": [
+          23,
+          222,
+          240
+        ],
+        "memory_api.py": [
+          61,
+          123,
+          124
+        ],
+        "perceive.py": [
+          21,
+          45,
+          49
+        ],
+        "procedural_memory.py": [
+          7,
+          17,
+          18,
+          83,
+          148
+        ],
+        "self_engine.py": [
+          46,
+          224,
+          229,
+          291,
+          296,
+          304,
+          412,
+          423,
+          467,
+          468,
+          469,
+          471,
+          489,
+          525,
+          531,
+          534
+        ]
+      },
+      "hit_lines": 68
+    },
+    {
+      "id": "E02",
+      "claim": "emotion_instance：用概念范畴化建构离散情绪",
+      "ref": "§7.1 Barrett",
+      "patterns": [
+        "emotion_instance",
+        "categoriz",
+        "concept.*emotion"
+      ],
+      "hit_files": {
+        "affective_mind.py": [
+          6
+        ]
+      },
+      "hit_lines": 1
+    },
+    {
+      "id": "E03",
+      "claim": "appraisal_features 可解释评价维度",
+      "ref": "§7.1 Yeo&Ong",
+      "patterns": [
+        "appraisal",
+        "appraise"
+      ],
+      "hit_files": {
+        "affect.py": [
+          55
+        ],
+        "affective_mind.py": [
+          26,
+          275,
+          282,
+          316
+        ],
+        "insight_engine.py": [
+          222
+        ],
+        "memory_api.py": [
+          21,
+          108,
+          110
+        ],
+        "perceive.py": [
+          20,
+          79,
+          87
+        ]
+      },
+      "hit_lines": 12
+    },
+    {
+      "id": "E04",
+      "claim": "ABC：唤醒 × 优先级（高优先级不唤醒也增强）",
+      "ref": "§7.2 Mather",
+      "patterns": [
+        "priority",
+        "\\babc\\b"
+      ],
+      "hit_files": {
+        "human_memory.py": [
+          203,
+          227,
+          304
+        ],
+        "self_engine.py": [
+          225,
+          230,
+          354,
+          357
+        ],
+        "semantic_graph.py": [
+          257,
+          266,
+          274,
+          294
+        ]
+      },
+      "hit_lines": 11
+    },
+    {
+      "id": "E05",
+      "claim": "item↑ / relational↓：负性损害上下文绑定",
+      "ref": "§7.2 Bisby",
+      "patterns": [
+        "relational",
+        "binding.*loss",
+        "coherence"
+      ],
+      "hit_files": {
+        "human_memory.py": [
+          12,
+          55
+        ],
+        "insight_engine.py": [
+          161,
+          208
+        ]
+      },
+      "hit_lines": 4
+    },
+    {
+      "id": "E06",
+      "claim": "mood-congruent 检索偏置",
+      "ref": "§7.2",
+      "patterns": [
+        "recall_bias"
+      ],
+      "hit_files": {
+        "affect.py": [
+          108
+        ],
+        "engine.py": [
+          149
+        ],
+        "human_memory.py": [
+          612
+        ]
+      },
+      "hit_lines": 3
+    },
+    {
+      "id": "E07",
+      "claim": "调节工具箱：五策略族 + 健康度权重 + 多样性",
+      "ref": "§7.3 Gross/Baldwin",
+      "patterns": [
+        "reapprais",
+        "regulat",
+        "distancing",
+        "suppression"
+      ],
+      "hit_files": {
+        "affective_mind.py": [
+          26,
+          27,
+          305,
+          352,
+          355
+        ],
+        "self_engine.py": [
+          150,
+          521,
+          522,
+          526,
+          527,
+          528,
+          532,
+          535,
+          537
+        ]
+      },
+      "hit_lines": 14
+    },
+    {
+      "id": "E08",
+      "claim": "反刍检测器（重复+负面+自我聚焦+无进展）",
+      "ref": "§7.3 Aldao",
+      "patterns": [
+        "ruminat",
+        "反刍"
+      ],
+      "hit_files": {
+        "affective_mind.py": [
+          9,
+          287,
+          338,
+          340,
+          341,
+          350
+        ]
+      },
+      "hit_lines": 6
+    },
+    {
+      "id": "E09",
+      "claim": "调节灵活性：强度 × 可控性选策略",
+      "ref": "§7.3 Sheppes/Bonanno",
+      "patterns": [
+        "controllab",
+        "flexibil",
+        "strategy_select"
+      ],
+      "hit_files": {
+        "affective_mind.py": [
+          293,
+          299,
+          304,
+          352
+        ],
+        "self_engine.py": [
+          521,
+          526
+        ]
+      },
+      "hit_lines": 6
+    },
+    {
+      "id": "C01",
+      "claim": "全局工作空间：偏向竞争 + 点火广播",
+      "ref": "§4 GNW",
+      "patterns": [
+        "ignit",
+        "broadcast",
+        "salience"
+      ],
+      "hit_files": {
+        "affective_mind.py": [
+          46,
+          51,
+          53,
+          59,
+          67,
+          71,
+          74,
+          78,
+          89,
+          93,
+          94,
+          103,
+          105,
+          111,
+          117,
+          118,
+          119,
+          120
+        ],
+        "insight_engine.py": [
+          224,
+          225
+        ],
+        "self_engine.py": [
+          568,
+          577,
+          585
+        ]
+      },
+      "hit_lines": 23
+    },
+    {
+      "id": "C02",
+      "claim": "WM 容量限制与互相抑制",
+      "ref": "§4",
+      "patterns": [
+        "capacity",
+        "_compete"
+      ],
+      "hit_files": {
+        "affective_mind.py": [
+          48,
+          49,
+          83,
+          86,
+          96,
+          108
+        ]
+      },
+      "hit_lines": 6
+    },
+    {
+      "id": "C03",
+      "claim": "元认知：置信独立于检索分（FOK/TIP 可脱钩）",
+      "ref": "§10 Fleming",
+      "patterns": [
+        "fok",
+        "tip"
+      ],
+      "hit_files": {
+        "affective_mind.py": [
+          200,
+          204,
+          221,
+          223
+        ],
+        "self_engine.py": [
+          546
+        ]
+      },
+      "hit_lines": 5
+    },
+    {
+      "id": "C04",
+      "claim": "校准 ECE / Brier",
+      "ref": "§10",
+      "patterns": [
+        "ece",
+        "brier"
+      ],
+      "hit_files": {
+        "human_memory.py": [
+          476
+        ],
+        "self_engine.py": [
+          501,
+          551,
+          552,
+          553,
+          554
+        ]
+      },
+      "hit_lines": 6
+    },
+    {
+      "id": "C05",
+      "claim": "meta-d' / d' 元认知效率",
+      "ref": "§10",
+      "patterns": [
+        "meta_dprime",
+        "d_prime"
+      ],
+      "hit_files": {
+        "affective_mind.py": [
+          133,
+          148,
+          167,
+          176
+        ],
+        "self_engine.py": [
+          551,
+          556,
+          557
+        ]
+      },
+      "hit_lines": 7
+    },
+    {
+      "id": "C06",
+      "claim": "正证据偏差 PEB：显式加权反证",
+      "ref": "§10",
+      "patterns": [
+        "\\bpeb\\b",
+        "counter_evidence",
+        "disconfirm"
+      ],
+      "hit_files": {
+        "affective_mind.py": [
+          181,
+          211,
+          222
+        ],
+        "self_engine.py": [
+          540,
+          543
+        ]
+      },
+      "hit_lines": 5
+    },
+    {
+      "id": "C07",
+      "claim": "弃答：可以说不知道",
+      "ref": "§10",
+      "patterns": [
+        "abstain"
+      ],
+      "hit_files": {
+        "affective_mind.py": [
+          188,
+          219,
+          220,
+          223
+        ],
+        "brain.py": [
+          166,
+          167,
+          201,
+          210,
+          211,
+          213
+        ],
+        "self_engine.py": [
+          546
+        ]
+      },
+      "hit_lines": 11
+    },
+    {
+      "id": "C08",
+      "claim": "灵光 EII/CLARION：显隐整合 + 温度 + ICL 阈值",
+      "ref": "§8.2 Hélie&Sun",
+      "patterns": [
+        "\\bicl\\b",
+        "clarion",
+        "temperature",
+        "impasse"
+      ],
+      "hit_files": {
+        "insight_engine.py": [
+          55,
+          196,
+          209,
+          211,
+          213,
+          220,
+          224,
+          230,
+          231,
+          232,
+          235
+        ],
+        "self_engine.py": [
+          598
+        ]
+      },
+      "hit_lines": 12
+    },
+    {
+      "id": "C09",
+      "claim": "灵光独立慢校验（Aha ≠ 正确）",
+      "ref": "§8.2 Metcalfe",
+      "patterns": [
+        "verif",
+        "insight_candidate"
+      ],
+      "hit_files": {
+        "brain.py": [
+          327,
+          343
+        ],
+        "insight_engine.py": [
+          8,
+          40,
+          215,
+          217,
+          245,
+          247,
+          248,
+          249,
+          250,
+          251,
+          254
+        ],
+        "semantic_graph.py": [
+          8,
+          123,
+          166,
+          172,
+          193,
+          218,
+          226,
+          247,
+          273,
+          303,
+          321
+        ]
+      },
+      "hit_lines": 24
+    },
+    {
+      "id": "S01",
+      "claim": "Conway SMS 四层：life_story/lifetime_periods/general_events/ESK",
+      "ref": "§9 Conway",
+      "patterns": [
+        "lifetime_periods",
+        "\\besk\\b"
+      ],
+      "hit_files": {
+        "self_engine.py": [
+          14,
+          140,
+          141,
+          179,
+          180,
+          299,
+          302,
+          308
+        ]
+      },
+      "hit_lines": 8
+    },
+    {
+      "id": "S02",
+      "claim": "working self 门控 recall",
+      "ref": "§9 Conway",
+      "patterns": [
+        "working self 门控",
+        "def recall_self"
+      ],
+      "hit_files": {
+        "self_engine.py": [
+          320,
+          321
+        ]
+      },
+      "hit_lines": 2
+    },
+    {
+      "id": "S03",
+      "claim": "身份核心不被单次改写（需反复验证）",
+      "ref": "§9",
+      "patterns": [
+        "identity_core",
+        "identity.*verif"
+      ],
+      "hit_files": {
+        "self_engine.py": [
+          141,
+          177,
+          275,
+          289
+        ]
+      },
+      "hit_lines": 4
+    },
+    {
+      "id": "S04",
+      "claim": "关系模型：信任 / 未解冲突 / 仪式",
+      "ref": "§9",
+      "patterns": [
+        "trust",
+        "unresolved",
+        "ritual"
+      ],
+      "hit_files": {
+        "self_engine.py": [
+          48,
+          405,
+          413,
+          415,
+          416,
+          419,
+          431,
+          488,
+          491,
+          505
+        ]
+      },
+      "hit_lines": 10
+    },
+    {
+      "id": "G01",
+      "claim": "图多跳检索 + 超边 episodic_hyperedges",
+      "ref": "§3.5",
+      "patterns": [
+        "hops",
+        "hyper"
+      ],
+      "hit_files": {
+        "insight_engine.py": [
+          77,
+          89,
+          101,
+          106,
+          203
+        ],
+        "self_engine.py": [
+          12,
+          371,
+          374,
+          375
+        ],
+        "semantic_graph.py": [
+          6,
+          40,
+          53,
+          68,
+          197,
+          198,
+          202,
+          251
+        ]
+      },
+      "hit_lines": 17
+    },
+    {
+      "id": "G02",
+      "claim": "事实 provenance / 版本化 / 双时间线 / 冲突解决",
+      "ref": "§3.3",
+      "patterns": [
+        "provenance",
+        "valid_from",
+        "conflict"
+      ],
+      "hit_files": {
+        "brain.py": [
+          308,
+          327
+        ],
+        "semantic_graph.py": [
+          5,
+          41,
+          54,
+          57,
+          58,
+          70,
+          79,
+          120,
+          135,
+          137,
+          150,
+          173,
+          178,
+          194,
+          267,
+          285,
+          298
+        ]
+      },
+      "hit_lines": 19
+    },
+    {
+      "id": "G03",
+      "claim": "程序 savings（生疏后重学更快）",
+      "ref": "§3.4",
+      "patterns": [
+        "savings"
+      ],
+      "hit_files": {
+        "procedural_memory.py": [
+          6,
+          144,
+          150
+        ],
+        "self_engine.py": [
+          514,
+          515
+        ]
+      },
+      "hit_lines": 5
+    },
+    {
+      "id": "G04",
+      "claim": "程序编译自动化 → 步骤缩短 / 成本下降",
+      "ref": "§3.4",
+      "patterns": [
+        "compiled"
+      ],
+      "hit_files": {
+        "procedural_memory.py": [
+          45,
+          46,
+          61,
+          70,
+          96,
+          97,
+          101,
+          136,
+          144,
+          147,
+          156,
+          178,
+          180
+        ]
+      },
+      "hit_lines": 13
+    }
+  ],
+  "claimed_modules_missing": [],
+  "zero_hit": []
+}

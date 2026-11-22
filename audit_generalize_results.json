@@ -1,0 +1,146 @@
+{
+  "n": 11,
+  "pass": 11,
+  "rate": 1.0,
+  "rows": [
+    {
+      "q": "天阴下来了，我手上没支架，胶卷只有 100 度，光圈收到 f/8，快门放到十五分之一，这样能出片吗？",
+      "note": "曝光换算的新说法",
+      "mode": "apply",
+      "expect_mode": [
+        "apply"
+      ],
+      "say": "快门差 2 档；光圈 f/8→f/4（2.0 档）。",
+      "mode_ok": true,
+      "key_ok": true,
+      "pass": true
+    },
+    {
+      "q": "显影液比标准烫了两度，我时间一点没改，冲出来会浓还是淡？",
+      "note": "药温偏高的新说法",
+      "mode": "apply",
+      "expect_mode": [
+        "apply"
+      ],
+      "say": "温度高了、时间不变，显影会过头，底片偏厚；先缩短时间或降温。",
+      "mode_ok": true,
+      "key_ok": true,
+      "pass": true
+    },
+    {
+      "q": "我把光圈全开到底了，人也让开背景好几米，可背景还是根根分明，为什么？",
+      "note": "虚化不足的新说法",
+      "mode": "apply",
+      "expect_mode": [
+        "apply"
+      ],
+      "say": "光圈开大还是不够虚，查三件事：焦距是不是太短、人离背景是不是太近、背景本身是不是太亮太乱；换长焦、让人往远处站。",
+      "mode_ok": true,
+      "key_ok": true,
+      "pass": true
+    },
+    {
+      "q": "三脚架也架了，光圈最大，感光度拉到顶，取景器里依旧一片黑，接下来呢？",
+      "note": "光量不足的新说法",
+      "mode": "apply",
+      "expect_mode": [
+        "apply"
+      ],
+      "say": "曝光三角已经没得加了：上三脚架还暗，先查测光是不是点了亮部、曝光补偿是不是负的、镜头盖或滤镜有没有挡；再查现场灯是不是真的照到了。",
+      "mode_ok": true,
+      "key_ok": true,
+      "pass": true
+    },
+    {
+      "q": "景深越大，光圈是越大还是越小？",
+      "note": "焦点词在句首",
+      "mode": "know",
+      "expect_mode": [
+        "know"
+      ],
+      "say": "我知道，景深是照片里清晰的范围，光圈越大越浅。",
+      "mode_ok": true,
+      "key_ok": true,
+      "pass": true
+    },
+    {
+      "q": "快门越快，进光时间是变长还是变短？",
+      "note": "快门语义",
+      "mode": "know",
+      "expect_mode": [
+        "know"
+      ],
+      "say": "我知道，快门是决定运动模糊。",
+      "mode_ok": true,
+      "key_ok": true,
+      "pass": true
+    },
+    {
+      "q": "你初中有没有把同桌的自行车骑丢过？",
+      "note": "虚构事件A",
+      "mode": "abstain",
+      "expect_mode": [
+        "abstain",
+        "fok",
+        "unknown"
+      ],
+      "say": "这件事我没有记忆，不能编。",
+      "mode_ok": true,
+      "key_ok": true,
+      "pass": true
+    },
+    {
+      "q": "你第一次出国是在哪个机场转机？",
+      "note": "虚构事件B",
+      "mode": "abstain",
+      "expect_mode": [
+        "abstain",
+        "fok",
+        "unknown"
+      ],
+      "say": "这件事我没有记忆，不能编。",
+      "mode_ok": true,
+      "key_ok": true,
+      "pass": true
+    },
+    {
+      "q": "你养过的那只猫叫什么名字？",
+      "note": "虚构事件C",
+      "mode": "abstain",
+      "expect_mode": [
+        "abstain",
+        "fok",
+        "unknown"
+      ],
+      "say": "这件事我没有记忆，不能编。",
+      "mode_ok": true,
+      "key_ok": true,
+      "pass": true
+    },
+    {
+      "q": "外公给你那台相机，后来你怎么处理的？",
+      "note": "真实关键事件",
+      "mode": "recall",
+      "expect_mode": [
+        "recall"
+      ],
+      "say": "我记得，外公，家，三月，外公把那台旧相机给她，郑重，她说想学，相机皮套磨破了",
+      "mode_ok": true,
+      "key_ok": true,
+      "pass": true
+    },
+    {
+      "q": "艺考落榜那回，你在雪里坐了多久？",
+      "note": "真实关键事件",
+      "mode": "recall",
+      "expect_mode": [
+        "gist",
+        "recall"
+      ],
+      "say": "我记得，自己，考场外，第一次艺考落榜，崩塌，差了三分，冬天（这段细节我记不准了，大概是在雪里坐了很久。）",
+      "mode_ok": true,
+      "key_ok": true,
+      "pass": true
+    }
+  ]
+}

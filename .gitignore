@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pyo
+store.json
+*.store.json
+chat_voice.json
+feel_frames.json

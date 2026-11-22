@@ -1,0 +1,134 @@
+[
+  {
+    "id": "P01",
+    "title": "命中主门时是否写入提取练习（accesses / reinforced）",
+    "verdict": "OK",
+    "evidence": "best=m0 accesses 1→2 reinforced=True"
+  },
+  {
+    "id": "P02",
+    "title": "detail_kept 下降后，被丢字段是否仍可作为检索线索",
+    "verdict": "OK",
+    "evidence": "detail_kept=0.57 丢掉=['where', 'when', 'result'] 用被丢字段+what 检索命中=False"
+  },
+  {
+    "id": "P03",
+    "title": "_text_score 对无关长句是否给出满分覆盖",
+    "verdict": "OK",
+    "evidence": "问『聊起洗出第一张照片』：拿奖=0.00 做饭=0.00（两条都没有照片）"
+  },
+  {
+    "id": "P04",
+    "title": "心情正/负时检索排序是否不同（情绪一致性检索）",
+    "verdict": "OK",
+    "evidence": "低落序=['m1', 'm2', 'm0'] 高涨序=['m0', 'm2', 'm1']；affect.recall_bias 在 human_memory 中的调用次数=0"
+  },
+  {
+    "id": "P05",
+    "title": "同内容新旧两条记忆，检索是否偏向近期（RS 参与排序）",
+    "verdict": "OK",
+    "evidence": "top1=m1（old=m0 fresh=m1）rs_old=5.1750 rs_fresh=0.0220"
+  },
+  {
+    "id": "P06",
+    "title": "load_self 读入的 timeline 能否被 save_self 写回",
+    "verdict": "OK",
+    "evidence": "读入 timeline=True；保存后 keys=['relationships', 'self_model', 'timeline', 'working_self']"
+  },
+  {
+    "id": "P07",
+    "title": "同一来源同一秒重复教一次，事实是否直接 verified",
+    "verdict": "OK",
+    "evidence": "status=proposed lessons=['同一节课@500']"
+  },
+  {
+    "id": "P08",
+    "title": "replace=True 重复教同一新说法后，同谓词活跃说法数量",
+    "verdict": "OK",
+    "evidence": "活跃说法=['越大越浅']"
+  },
+  {
+    "id": "P09",
+    "title": "semantic_graph.ask 是否过滤 valid_from 未到的事实",
+    "verdict": "OK",
+    "evidence": "now=今天 时 ask 返回 0 条（明天才生效的事实）"
+  },
+  {
+    "id": "P10",
+    "title": "同一轮重复确认不累加；不同轮才累加",
+    "verdict": "OK",
+    "evidence": "同轮 5 次 → practice=1；再加 2 个不同轮 → practice=3"
+  },
+  {
+    "id": "P11",
+    "title": "shaky 随时间恢复 / compiled 降低执行成本",
+    "verdict": "OK",
+    "evidence": "刚失败 shaky=True，久置后 shaky=False；cost 未编译=1.010 编译后=0.656"
+  },
+  {
+    "id": "P12",
+    "title": "曝光推算是否读取镜头最大光圈 / 兜底文案是否随快门变化",
+    "verdict": "OK",
+    "evidence": "只有 f/4 套头 → 快门差 3 档；光圈 f/5.6→f/4（1.0 档）；ISO 400→1600。 ｜ 快门 1/8 兜底 → 手持别低于 1/60 秒；1/8 秒 端不住，先把快门提到 1/60 以上，再开大光圈或提 ISO。"
+  },
+  {
+    "id": "P13",
+    "title": "档位是否按相机 1/3 档刻度取整（而非为凑测试的容差）",
+    "verdict": "OK",
+    "evidence": "真实 log2(60/4)=3.9069 档；1/3 档刻度=4.0000；输出『4』"
+  },
+  {
+    "id": "P14",
+    "title": "practice_engine 是否做大小写归一与秒级快门解析",
+    "verdict": "OK",
+    "evidence": "小写 iso 100 触发约束=True；『2 秒』解析分母=0.5（应为 0.5）"
+  },
+  {
+    "id": "P15",
+    "title": "17 岁：诊断虚化不应早于会算曝光",
+    "verdict": "OK",
+    "evidence": "曝光=unknown ｜ 虚化诊断=abstain（闸门已统一为 18.7）"
+  },
+  {
+    "id": "P16",
+    "title": "『成了』出现在负面陈述里 / 隔多轮后是否仍确认旧规则",
+    "verdict": "OK",
+    "evidence": "输入『这张拍成了糊片』→ mode=abstain say=这件事我没有记忆，不能编。 归因规则=None"
+  },
+  {
+    "id": "P17",
+    "title": "gist 命中记忆与对外 top 是否可能不是同一条",
+    "verdict": "OK",
+    "evidence": "best=None gist_best=m0 top=m0"
+  },
+  {
+    "id": "P18",
+    "title": "told 类事实的措辞 / 关系问句是否答到被问的关系",
+    "verdict": "OK",
+    "evidence": "问相机来历→『我听说，那台相机是他年轻时买的。』；问『景深越大，光圈越大还是越小』→『我知道，景深是清晰范围，光圈越大越浅。』"
+  },
+  {
+    "id": "P19",
+    "title": "兼容层 engine.MemoryEngine 是否仍无条件 best=results[0] 且回全字段",
+    "verdict": "OK",
+    "evidence": "无关线索 best=None；返回 episode 是否等于 full_episode=True"
+  },
+  {
+    "id": "P20",
+    "title": "store 损坏时是否抛错而不是静默当空库",
+    "verdict": "OK",
+    "evidence": "strict 抛 StoreCorrupt=True；显式 strict=False 才降级=True"
+  },
+  {
+    "id": "P21",
+    "title": "DG/CA3/CA1、情绪偏置、联想边是否参与重建版检索",
+    "verdict": "OK",
+    "evidence": "human_memory 引用情况={'CA3': True, 'CA1': True, 'dg.separate 用于检索': True, 'recall_bias': True, 'relevance': True}；ask_graph 是否用 edges=True"
+  },
+  {
+    "id": "P22",
+    "title": "enabled=False 是否真的关闭写入；insight 是否有实现",
+    "verdict": "OK",
+    "evidence": "enabled=False 仍返回 mid=None；insight()={'insight': None, 'confidence': 0.0}"
+  }
+]
