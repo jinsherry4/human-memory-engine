@@ -361,17 +361,38 @@ def realize(ep, voice, question="", arousal=0.4, valence=0.0, mode="recall",
         adv = None
 
     # ---- 组装：状语 + 核心 + 尾巴 ----
-    def build(with_adv=True, tail_list=None):
+    def build(with_adv=True, tail_list=None, short_adv=False):
         parts = []
         if with_adv and adv:
-            frame = voice.say("scene", {adv[0]: adv[1], "what": core},
-                              need_slot=adv[0])
-            parts.append(frame if frame else ("%s，%s" % (adv[1], core)))
+            if short_adv:
+                # 短状语：裸地/裸时间（"在家""春天"）——场景框架太长挤掉
+                # 被问的那一维时，先试这个（2026-11-22 复查修复：长度预算
+                # 此前会把被问的 where/when 随状语整句砍掉）。
+                # 不自带尾逗号——join 统一补，否则出现"，,"
+                v = adv[1]
+                sv = v if (adv[0] == "when" or v.startswith(("在", "于"))) else ("在" + v)
+                parts.append(sv)
+                parts.append(core)   # 短状语只是前缀,核心句必须跟上(m17 教训)
+            else:
+                frame = voice.say("scene", {adv[0]: adv[1], "what": core},
+                                  need_slot=adv[0])
+                # 语料里的 scene 框架必须真带 {what} 槽——没有时核心句会被
+                # 静默丢掉（m17"那会儿在评图室，，然后…"，2026-11-22 复查修复）
+                if frame and (core[:4] in frame or core[:2] in frame):
+                    parts.append(frame)
+                else:
+                    parts.append("%s，%s" % (adv[1], core))
         else:
             parts.append(core)
-        for d, v in (tail_list if tail_list is not None else tails):
+        for t in (tail_list if tail_list is not None else tails):
+            d, v = t[0], t[1]
             c = _tail_clause(d, v, voice, valence)
-            if c:
+            if not c:
+                continue
+            if len(t) == 3 and t[2] == "plain":
+                # 截短尾巴不带连接词——预算按裸从句算，连接词会挤掉内容
+                parts.append(_clip_tail(c))
+            else:
                 parts.append(_connect(d, _clip_tail(c), voice))
         return "，".join(parts)
 
@@ -381,23 +402,63 @@ def realize(ep, voice, question="", arousal=0.4, valence=0.0, mode="recall",
     # 不能按位置砍——尾巴顺序是"被问的那一维"在前，物证在后，
     # 按位置砍会先把物证砍掉（holdout w11 就是这么丢的）；
     # 也不能在兜底时把尾巴全加回来——那会把裁剪撤销。
+    # 被问/问句点到的那一维进 keep——长度预算绝不先砍它
+    # （"在家吗"就答家、"主题叫什么"就答窗，2026-11-22 复查修复）。
+    keep = {d for d in (sel["dim"], sel["matched"]) if d}
     no_feel = [t for t in tails if t[0] != "feel"]
-    no_feel_why = [t for t in tails if t[0] not in ("feel", "why")]
-    only_result = [t for t in tails if t[0] == "result"][:1]
+    no_feel_why = [t for t in tails
+                   if t[0] not in ("feel", "why") or t[0] in keep]
+    only_result = [t for t in tails if t[0] == "result" or t[0] in keep][:1]
+
+    def _clipped(tail_list):
+        """截短尾巴而不是整条丢——物证最不能丢（阶梯原文）。
+
+        预算按裸从句算（plain，连接词不占字），先剥"我把/我"前缀
+        （first_person 的残留，真人口语里不会重复主语）。
+        """
+        room = max_len - len(core) - 1
+        out_tails = []
+        for t in tail_list:
+            d, v = t[0], t[1]
+            if room < 4:
+                break
+            if v.startswith("我把") and len(v) - 2 >= 4:
+                v = v[2:]
+            elif v.startswith("我") and len(v) - 1 >= 4:
+                v = v[1:]
+            cv = _clip_tail(v, room)
+            if cv:
+                out_tails.append((d, cv, "plain"))
+                room -= len(cv) + 1
+        return out_tails
+
     cands = [
         build(tail_list=tails),
         build(tail_list=no_feel),
         build(tail_list=no_feel_why),
+        build(short_adv=True, tail_list=no_feel_why),   # 短状语先于去状语
         build(with_adv=False, tail_list=no_feel_why),   # 砍状语，保住结果
+        build(with_adv=False, tail_list=_clipped(no_feel_why)),   # 截短保物证
         build(with_adv=False, tail_list=only_result),   # 再砍原因
-        build(with_adv=False, tail_list=[]),            # 只剩核心
+        build(with_adv=False, tail_list=_clipped(only_result)),
     ]
     for text in cands:
         if len(text) <= max_len:
             out = text
             break
     else:
-        out = core
+        # 物证宽限：只剩核心但 result 存在时,允许 +3 字保留结果小句
+        # （"物证最不能丢"的最后一道,2026-11-22 复查修复）
+        res = [t for t in tails if t[0] == "result"][:1]
+        if res:
+            # 宽限路径用裸从句(不带"然后"连接词)——连接词的两格会把物证
+            # 再挤出去(m24 教训:28>27 差两格)
+            out = build(with_adv=False,
+                        tail_list=[(res[0][0], res[0][1], "plain")])
+        else:
+            out = core
+        if len(out) > max_len + 3:
+            out = core
 
     # ---- 外框：回忆标记 或 立场副词（轮换）----
     # 有时间状语时**不能**再叠"上次/之前/以前"——两个时间标记会打架

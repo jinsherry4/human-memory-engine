@@ -240,6 +240,31 @@ def main():
           % ({"pavlovian", "episodic", "instrumental", "semantic"} <= set(r_old),
              r_old["instrumental"]["utility"], r_old.get("trust", -1)))
 
+    # ---------- §18.8 生产接线：WM 精度 + change-of-mind 走对话层 ----------
+    # R126/R131 教训：机制只在测试里调用等于没接。这两项锁住 brain 层的接线。
+    from brain import Brain
+    e8 = SelfEngine(affect=Affect(), human_store=os.path.join(tmp, "r7_h8.json"),
+                    semantic=True, semantic_store=os.path.join(tmp, "r7_s8.json"),
+                    mind=True)
+    e8.set_age(20.5)
+    b8 = Brain(e8)
+    e8.remember({"who": "外公", "where": "家", "what": "把旧相机给她",
+                 "feel": "郑重"}, arousal=0.5, now=T0 + 5 * D)
+    # 记忆要新鲜：隔太久 RS 低,置信够不到 change-of-mind 的 0.35 阈值
+    out1 = b8.turn("你偷拿爸爸信用卡买相机那次被发现了吗", now=T0 + 5 * D + 3600)
+    out2 = b8.turn("还记得外公给你的相机吗", now=T0 + 5 * D + 3660)
+    wm_last = (e8.workspace.items[-1] if e8.workspace and e8.workspace.items else {})
+    check("§18.8-a recall 命中进工作空间且带 precision(§18.3 精度边界活在生产)",
+          out1["mode"] == "abstain"
+          and wm_last.get("precision") is not None,
+          "首轮=%s wm_precision=%s" % (out1["mode"], wm_last.get("precision")))
+    check("§18.8-b 锚点重叠时 change-of-mind 通道(prev)生效",
+          (b8._last_meta or {}).get("reopened") is True
+          and (b8._last_meta or {}).get("prev_confidence") is not None,
+          "二轮 meta: reopened=%s prev_conf=%s"
+          % ((b8._last_meta or {}).get("reopened"),
+             (b8._last_meta or {}).get("prev_confidence")))
+
     print("=" * 60)
     print("结果：%d / %d 项通过" % (sum(PASS), len(PASS)))
     return 0 if all(PASS) else 1
