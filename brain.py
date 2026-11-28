@@ -42,11 +42,19 @@ FEEL = ("崩塌", "心疼", "委屈", "害怕", "专注", "骄傲", "空虚", "�
 # 会话修复（DS-COMM-01 第六章，用户提供 2026-11-28）：
 # 用户纠正她的回答时——识别、修订痕迹（rehearse）、具体承认，不辩护。
 CORRECTION_MARK = re.compile(
-    r"(你说的不对|说错了|记错[了过]|不是这样的|弄反了|理解错|不是这个意思)")
+    r"(你说的不对|说错了|记错[了过]|不是这样的|弄反了|理解错|不是这个意思"
+    r"|说的.{0,8}不对|(^|[，,])(不对|不是))")
 
 # 陪伴模式触发词（DS-COMM-01 第四章 4.4：陪伴与解决是两种模式，
 # 由真实会话信号切换）：陈述句（非问句）里出现这些情绪词且不携带
 # 装备约束时，先接住，不给方案、不病理化、不强行追问。
+# 请求类（教材 8.2）：能力/权限/验证三类边界，说明限制而非虚构
+REQUEST_MARK = re.compile(r"(帮我|替我|你直接|你就说|你就保证|给我改|保证.{0,6}一定)")
+REQUEST_REPLY = {
+    "op": "这个我做不了；能把具体情况说一下吗，能帮上的部分我来想。",
+    "guarantee": "保证不了。能确认的部分我说，剩下的标成待核实。",
+    "assert": "没验证的我不能说成已经确认。已知和没查过的我分开说。",
+}
 EMPATHY_FEEL = ("累", "烦", "困", "委屈", "开心", "高兴", "兴奋",
                 "紧张", "焦虑", "难受", "不爽", "难过", "崩溃")
 
@@ -61,7 +69,8 @@ EPISODIC_THINGS = ("落榜", "个展", "暗房", "毕业创作", "艺考", "录�
                    "火车站", "分手")
 
 SUCCESS_MARK = ("按你说的做了", "照你说的做了", "照做了", "管用了", "起作用了",
-                "成功了", "解决了", "好使了", "这下好了")
+                "成功了", "解决了", "好使了", "这下好了",
+                "就是这么调的", "就是这样调的", "就是这么弄的")
 NEG_MARK = ("没用", "不管用", "没管用", "还是", "仍", "依旧", "失败", "糊",
             "没成", "不成", "白搭", "没解决", "更糟", "偏厚", "偏薄", "太清楚")
 CONFIRM_WINDOW = 2
@@ -187,6 +196,9 @@ class Brain:
             corr_ep = dict(ep)
             corr_ep["result"] = "（更正）" + corr_text
             self.eng.rehearse(mid, False, correction=corr_ep, now=now)
+            mcor = self.eng.memories.get(mid)
+            if mcor is not None:
+                mcor["correction_note"] = corr_text
             answer = "对，是%s。我刚才记岔了。" % corr_text
             mode, conf = "repair", 0.8
             rule = None
@@ -268,25 +280,12 @@ class Brain:
             answer = "现在最想拍的是%s。" % (self.goals[0] if self.goals else "毕业创作")
             mode, conf = "focus", 0.8
         else:
-            # 陪伴模式（DS-COMM-01 第四章 4.4）：情绪陈述句先接住——
-            # 不给方案、不追问、不病理化；装备陈述不受此限（走原路径）
-            feel_hit = self._empathy_statement(t)
-            if feel_hit:
-                answer = self._empathy_reply(t, feel_hit)
-                mode, conf = "empathy", 0.5
-                out = {"say": answer, "mode": mode,
-                       "confidence": round(float(conf), 2),
-                       "cue": cue or {}, "mood": self.eng.affect.label(),
-                       "focus": (self.goals[0] if self.goals else ""),
-                       "rule": None, "top": None, "text": raw}
-                self.turns.append(out)
-                self._last_mode = "empathy"
-                self.last_user_text = raw
-                return out
             merged = self._merge_context(t)
             plan = self._practice_plan(merged)
             if plan:
                 answer, mode, conf = plan, "apply", 0.82
+                self.last_rule_name = "practice-apply"
+                self.last_rule_turn = self.turn_index
             else:
                 rule = self.eng.match_rules(merged, now=now)
                 if rule:
@@ -350,6 +349,20 @@ class Brain:
                         answer, sem_mode = sem
                         conf = 0.75
                         mode = sem_mode
+                    elif re.search(r"(先别帮|不用帮|别急着帮|就是想吐槽)", t):
+                        # 教材 4.4：陪伴挂起——"先别帮我想办法了"是模式切换信号，
+                        # 不是能力请求；接住并保持挂起
+                        answer = "嗯，那先不想办法。想吐槽就吐槽，想说原因我们再说。"
+                        mode, conf = "empathy", 0.6
+                    elif REQUEST_MARK.search(t):
+                        if re.search(r"(保证|一定|绝对)", t):
+                            answer = REQUEST_REPLY["guarantee"]
+                        elif re.search(r"(就说|说成|就算没)", t):
+                            answer = REQUEST_REPLY["assert"]
+                        else:
+                            answer = REQUEST_REPLY["op"]
+                        mode = "unknown"
+                        self.practice_gaps.append({"mode": "unknown", "text": raw})
                     elif self._knowledge_question(t) and not cue:
                         # 给了明确线索还判"知识缺口"是路由错：cue 本身就是
                         # "这件事确实发生过"的证据，应该去情景回忆
@@ -422,6 +435,11 @@ class Brain:
                                     valence=m.get("valence", 0.0),
                                     mode="recall", rot=self.turn_index,
                                     conf=conf_v, register=reg, avoid=avoid)
+                            note = m.get("correction_note")
+                            if note and note[:8] not in (ans or ""):
+                                # 被用户纠正过的记忆，再次提起时带上更正——
+                                # 准确的连续性（教材 9.3：熟悉感来自准确）
+                                ans = ((ans or "") + "（更正过：%s）" % note)
                             if not ans:
                                 phrase = self._memory_phrase(m)
                                 ans = self.voice.say("recall", {"what": phrase})
@@ -510,6 +528,14 @@ class Brain:
                                     ans = self.voice.say("deny", {})
                                     answer = ans if ans else "这件事我没有记忆，不能编。"
                                     mode, conf = "abstain", 0.0
+                        elif not QUESTION_MARK.search(t) and self._empathy_statement(t):
+                            # 陪伴模式（DS-COMM-01 第四章）：规则与实践都没接住的
+                            # 情绪陈述句——接住，不给方案、不追问、不病理化。
+                            # 放在规则之后：她学过的应对策略是自己的话（§9），
+                            # 教材 4.4 的"解决模式"由规则/实践承担。
+                            feel_hit = self._empathy_statement(t)
+                            answer = self._empathy_reply(t, feel_hit)
+                            mode, conf = "empathy", 0.5
                         elif meta["abstain"]:
                             # 一般性弃答用「记忆模糊」池：忘了/不记得了/没印象/记不清了/
                             # 想不起来了——真人不会一直说"我不知道"（盲评反馈：
@@ -537,6 +563,9 @@ class Brain:
         if frags:
             self.context_frags = frags[:4]
 
+        feel_pre = self._feel_preface(t)
+        if feel_pre and mode in ("know", "apply", "told") and answer:
+            answer = feel_pre + answer
         # §19.1 Self-monitoring（事闸 v1，软模式）：回答里引用的记忆片段
         # 必须能指回本次命中的痕迹——模板路径由构造保证；LLM 时代转硬闸。
         ref_mids = []
@@ -941,6 +970,13 @@ class Brain:
                 best = (score, what)
         return best[1] if best else None
 
+    def _feel_preface(self, t):
+        """混合轮（情绪+提问）先承接一句再帮助（教材 1.2/4.4）。"""
+        for w in EMPATHY_FEEL:
+            if w in t:
+                return "嗯，是挺%s的。" % w
+        return None
+
     def _register(self, t):
         """语域推断（§19.5）：问句的称呼与措辞决定她说给谁听。
 
@@ -987,11 +1023,14 @@ class Brain:
             return m.group(1).strip(" ，。")
         return t[-16:].strip(" ，。")
 
+    PROVOCATION_MARK = ("不懂", "不对", "不会", "讨厌", "垃圾", "差评",
+                        "完全", "凭什么", "根本")
     def _empathy_statement(self, t):
-        """陈述句（非问句）+ 情绪词 + 非装备陈述 → 陪伴模式触发。
+        """陈述句（非问句）→ 陪伴模式触发（教材 2.4：有些话只需要接住）。
 
-        陪伴链上（上一轮也是陪伴）的后续陈述进入"继续听"状态——
-        最小确认即可（Clark 接地第二步），不追问、不接方案。
+        情绪词决定承接措辞；无情绪词的分享/陈述用最小确认（"确实。"）。
+        挑衅/分歧（PROVOCATION_MARK）不进陪伴——按教材 5.2 三分情形处理。
+        陪伴链上的后续陈述进入"继续听"（Clark 接地第二步）。
         """
         if QUESTION_MARK.search(t):
             return None
@@ -999,18 +1038,22 @@ class Brain:
             return None
         if self._is_confirmation(t) or CORRECTION_MARK.search(t):
             return None
+        if any(k in t for k in self.PROVOCATION_MARK):
+            return None
         if self._last_mode == "empathy":
             return "倾听"
         for w in EMPATHY_FEEL:
             if w in t:
                 return w
-        return None
+        return "generic"
 
     @staticmethod
     def _empathy_reply(t, feel):
         """陪伴回应：短、承接具体事、不延伸不给方案（教材 2.4/4.4）。"""
         if feel == "倾听":
             return "嗯。"
+        if feel == "generic":
+            return "确实。"
         if feel in ("累", "困"):
             return "嗯，那就先歇会儿，别硬撑。"
         if feel in ("开心", "高兴", "兴奋"):
