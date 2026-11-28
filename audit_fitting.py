@@ -29,9 +29,27 @@ out["SYNONYMS 右值命中题库"] = len(syn_hit)
 out["SYNONYMS 恒等映射"] = [(a, b) for a, b in SYNONYMS if a == b]
 out["SYNONYMS 命中样例"] = syn_hit[:12]
 
-spec = list(B.SPECIFIC)
+spec = list(getattr(B, "SPECIFIC", ()))
 out["SPECIFIC 总数"] = len(spec)
 out["SPECIFIC 命中题库"] = [k for k in spec if k in C]
+# R133：重建版没有 SPECIFIC 这个符号（上一版审计据此崩过），
+# 审计对象改成**实际存在的模块级词表**，否则脚本一跑就 AttributeError，
+# 而"审计跑不起来"会静默变成"没人再审计"。
+for name in ("EPISODIC_THINGS", "WHO", "WHERE", "WHEN", "FEEL",
+             "SUCCESS_MARK", "NEG_MARK"):
+    vals = [str(v) for v in (getattr(B, name, ()) or ())]
+    hit = [v for v in vals if v in C]
+    out["%s 词数" % name] = len(vals)
+    out["%s 命中题库" % name] = hit
+# 正则型常量：取它的 pattern 串，把里面有意义的字面词抽出来比对
+import re as _re
+for name in ("KNOWLEDGE_PROBE", "EPISODE_MARK", "QUESTION_MARK", "VERB_GUO"):
+    pat = getattr(B, name, None)
+    if not isinstance(pat, _re.Pattern):
+        continue
+    words = [w for w in _re.split(r"[|()\[\]\\?*+]", pat.pattern) if len(w) >= 2]
+    out["%s 词数" % name] = len(words)
+    out["%s 命中题库" % name] = [w for w in words if w in C]
 
 
 def kws(fn):

@@ -17,6 +17,13 @@ import re
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _PATH = os.path.join(_HERE, "chat_voice.json")
 
+# R133-f：载荷以这些**明确时间词**起头时，不再套时间前缀框架（防"之前年三十前…"）。
+# 刻意不收回"上/下/前/后/那/当"这类：太多普通词以它们开头（"上次""后来"都不该算），
+# 收窄到真正的日历/时段字。
+_TIME_HEAD = ("年", "月", "日", "号", "春节", "除夕", "中秋", "国庆", "清明",
+              "端午", "周末", "寒假", "暑假", "开学", "期末", "元旦",
+              "今", "昨", "明", "春", "夏", "秋", "冬")
+
 # 第一人称改写：数据里的人物小传是第三人称写她的，说出口要变第一人称。
 # 这是**机械替换**，不改内容。
 _THIRD_PERSON = re.compile(r"她")
@@ -73,9 +80,33 @@ class ChatVoice:
         cands.sort(key=lambda fr: (-len(fr.get("slots") or []), -fr.get("n", 0)))
         best_n = len(cands[0].get("slots") or [])
         tier = [c for c in cands if len(c.get("slots") or []) == best_n]
-        fr = tier[self._i % len(tier)]
+        # R133-d：同档内**按语料支撑条数加权轮换**，不是等概率。
+        # 本文件开头写的规则是"n 越大越常用"，但原实现是 tier[i % len(tier)]
+        # 等概率轮转——know 池只有三个候选时，"一般是"（n=17）和"就是"（n=785）
+        # 各占 1/3，于是三分之一的知识回答都以"一般是"开头，读起来像同一个人
+        # 反复念同一句口头禅（固定开场率 23% 的直接来源之一）。
+        #
+        # 加权方式：n 开方（压长尾）→ 归一到总长度 20 的序列 → 每个候选**至少
+        # 留一格**。第一版直接把开方值当重复次数并 cap 12，结果 sqrt(785)≈28 与
+        # sqrt(174)≈13 双双触顶，序列里全是"就是"，反而更单调。
+        weights = [max(1.0, float(c.get("n", 0)) ** 0.5) for c in tier]
+        tot = sum(weights)
+        seq = []
+        for c, w in zip(tier, weights):
+            k = max(1, int(round(w / tot * 20)))
+            seq.extend([c] * k)
+        fr = seq[self._i % len(seq)]
         self._i += 1
         out = fr.get("t", "")
         for s in (fr.get("slots") or []):
             out = out.replace("{%s}" % s, str(slots.get(s) or ""), 1)
+        # R133-f：时间前缀 + 已带时间成分的载荷会叠词。
+        # "之前{what}" 套 "年三十前说今年不能串门" → "之前年三十前说…"（两个时间词挤在开头）。
+        # 载荷自己已经以**明确时间词**起头时，去掉框架的时间前缀，直接说载荷。
+        if out:
+            payload = str(slots.get("what") or "")
+            if payload and payload.startswith(_TIME_HEAD):
+                for pre in ("之前", "上次", "以前", "那会儿", "那次"):
+                    if out.startswith(pre):
+                        return payload
         return out

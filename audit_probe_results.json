@@ -8,8 +8,8 @@
   {
     "id": "P02",
     "title": "detail_kept 下降后，被丢字段是否仍可作为检索线索",
-    "verdict": "OK",
-    "evidence": "detail_kept=0.57 丢掉=['where', 'when', 'result'] 用被丢字段+what 检索命中=False"
+    "verdict": "GAP",
+    "evidence": "detail_kept=0.57 丢掉=['where', 'when', 'result'] 用被丢字段+what 检索命中=True"
   },
   {
     "id": "P03",
@@ -93,7 +93,7 @@
     "id": "P16",
     "title": "『成了』出现在负面陈述里 / 隔多轮后是否仍确认旧规则",
     "verdict": "OK",
-    "evidence": "输入『这张拍成了糊片』→ mode=abstain say=这件事我没有记忆，不能编。 归因规则=None"
+    "evidence": "输入『这张拍成了糊片』→ mode=abstain say=忘了 归因规则=None"
   },
   {
     "id": "P17",
@@ -105,7 +105,7 @@
     "id": "P18",
     "title": "told 类事实的措辞 / 关系问句是否答到被问的关系",
     "verdict": "OK",
-    "evidence": "问相机来历→『我听说，那台相机是他年轻时买的。』；问『景深越大，光圈越大还是越小』→『我知道，景深是清晰范围，光圈越大越浅。』"
+    "evidence": "问相机来历→『听说他年轻时买的』；问『景深越大，光圈越大还是越小』→『景深就是清晰范围，光圈越大越浅』"
   },
   {
     "id": "P19",

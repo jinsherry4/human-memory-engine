@@ -61,10 +61,18 @@ _TIME_HEAD = re.compile(r"(那天|那会儿|当时|那年|年前|年三十前|�
 def _load_feel_frames():
     """情绪词 → 该词在真实聊天里实际用的框架。
 
-    规则（R130）：
+    规则（R130，R133-c 修正实现）：
       1. 该词在语料里 0 次 → 不带出来（连真人都不这么用的词，别让她说）
-      2. 有**前缀框架**（有点X/很X/好X/太X/真X/挺X…）→ 用出现最多的那个
-      3. 只有后置形式（…的/…地，定语用法）或只有裸用 → 不带出来
+      2. **裸用是主导形式时就用裸用**——33/34 个词的主导框架就是裸用
+         （烦 398/466、困 314/439、好奇 77/117、委屈 17/17、郑重 8/11…）。
+         真人说"烦"、"困"、"好奇"，不说"好烦"——后者是次要变体。
+      3. 裸用不是主导、且前缀框架有足够支撑时，才用那个前缀框架。
+      4. 后置形式（…的/…地）是定语/副词，不能当句尾，不作候选。
+
+    R133-c 修的是什么：原实现在第 2 步把"裸用"从候选里**排除掉**，再取次优前缀。
+    结果 233 个有框架的词里 **232 个**与语料众数不符（偏差 99.6%）：
+    "学" 语料 20067/20685 是裸用，引擎却说"好学"；"快" 2264/2505 裸用，说"很快"。
+    这不是极少数词的偏差，是把"真人怎么说"整体换成了"引擎以为怎么说"。
     """
     path = os.path.join(_HERE, "feel_frames.json")
     try:
@@ -82,13 +90,19 @@ def _load_feel_frames():
             continue          # 语料里一次都没出现过 → 不带出来
         known.add(w)
         frames = v.get("框架") or {}
-        # 只收**前缀**框架：后置的"…的/…地"是定语/副词形式，不能当句尾
-        cand = [(k, n) for k, n in frames.items()
-                if k != "裸用" and n >= 1 and not k.endswith(("的", "地"))]
-        if not cand:
+        # 前置框架候选：排除后置的"…的/…地"（定语/副词，不能当句尾）
+        pre = {k: n for k, n in frames.items()
+               if k != "裸用" and n >= 1 and not k.endswith(("的", "地"))}
+        bare = int(frames.get("裸用") or 0)
+        # 裸用是主导形式（或唯一形式）→ 裸用，即词本身
+        top_pre = max(pre.values()) if pre else 0
+        if bare >= top_pre:
+            out[w] = w
             continue
-        cand.sort(key=lambda kv: (-kv[1], len(kv[0])))
-        out[w] = cand[0][0]          # 已是完整字面（含词），直接当尾巴用
+        if not pre:
+            continue          # 只有后置形式 → 不带出来
+        best = max(pre.items(), key=lambda kv: (kv[1], -len(kv[0])))
+        out[w] = best[0]      # 已是完整字面（含词），直接当尾巴用
     return out, known
 
 
@@ -176,7 +190,7 @@ def _specific(dim, v):
 
 
 def select_slots(ep, question="", arousal=0.4, valence=0.0, force_dim=None,
-                 max_tails=2):
+                 max_tails=2, avoid=()):
     """挑出这条记忆**该说哪几层**。
 
     返回 dict：
@@ -233,6 +247,10 @@ def select_slots(ep, question="", arousal=0.4, valence=0.0, force_dim=None,
             break
         v = first_person(ep.get(k) or "").strip(" ，,")
         if not v:
+            continue
+        # 潜台词闸：尾巴撞上"不说什么"清单就留白——不是被问到的话不主动说
+        # （§19.4 文学craft 的机制化；被问到的维度走 core，不受此限）
+        if any(a and a in v for a in avoid):
             continue
         if k == adv_dim:
             # 已经做状语从句了，别再说一遍
@@ -325,7 +343,8 @@ def _clip_tail(text, maxlen=16):
 
 
 def realize(ep, voice, question="", arousal=0.4, valence=0.0, mode="recall",
-            rot=0, force_dim=None, max_len=MAX_LEN):
+            rot=0, force_dim=None, max_len=MAX_LEN,
+            conf=0.85, register="平辈", avoid=()):
     """把一条记忆说成一句人话。
 
     ep      : 记忆的字段字典（what/where/when/feel/why/result/who）
@@ -333,13 +352,17 @@ def realize(ep, voice, question="", arousal=0.4, valence=0.0, mode="recall",
     question: 用户问句——决定先答哪一维
     force_dim: 强制先答某一维（followup 路径用："后来呢"→result，"为什么"→why）
     rot     : 轮换计数（同档轮换，避免句式老是同一个）
+    conf    : 元认知置信 0-1（§19.3：hedge 由置信驱动——高置信干净断言，
+              中置信"好像/大概"，低置信交给 gist/弃答层）
+    register: 语域（师长/平辈/陌生）——师长档禁语气词、禁犹豫前导（§19.5）
+    avoid   : "不说什么"清单（§19.4 潜台词的机制化）——尾巴撞上就留白
 
     返回一句话；框架填不上返回 None，调用方退回旧模板。
     """
     if not ep or not voice:
         return None
     sel = select_slots(ep, question=question, arousal=arousal, valence=valence,
-                       force_dim=force_dim)
+                       force_dim=force_dim, avoid=avoid)
     core = sel["core"]
     if not core:
         return None
@@ -466,7 +489,17 @@ def realize(ep, voice, question="", arousal=0.4, valence=0.0, mode="recall",
         if len(out) > max_len + 3:
             out = core
 
+    # ---- §19.3 hedge（外层，不占预算）：中置信在首分句后插"好像"----
+    # 放在预算梯度的核心位会挤掉尾巴（c15 抽屉/m24 挂的教训），故在外层插入
+    if mode == "recall" and 0.55 <= conf < 0.8 and "好像" not in out             and not out.startswith(("我记得", "反正", "说起来", "上次", "之前", "其实")):
+        if "，" in out[:16]:
+            _i = out.index("，") + 1
+            out = out[:_i] + "好像" + out[_i:]
+        else:
+            out = "好像" + out
+
     # ---- 外框：回忆标记 或 立场副词（轮换）----
+    # 师长档不使用随意立场副词（"反正/还好/说实话"是平辈语域特征，§19.5）
     # 有时间状语时**不能**再叠"上次/之前/以前"——两个时间标记会打架
     # （"上次年三十前说今年不能串门"）。
     time_mark_conflict = ("上次", "之前", "以前") if adv else ()
@@ -474,8 +507,9 @@ def realize(ep, voice, question="", arousal=0.4, valence=0.0, mode="recall",
         if "记得" in str(question or ""):
             ans = voice.say("recall", {"what": out},
                             exclude_prefixes=time_mark_conflict)
-        elif rot % 3 == 2:
-            # 立场副词：真人表达对过去的态度靠它，不靠自我报告情绪
+        elif rot % 3 == 2 and register != "师长":
+            # 立场副词：真人表达对过去的态度靠它，不靠自我报告情绪；
+            # 师长档收敛语域，跳过随意立场副词（§19.5）
             ans = voice.say("stance", {"what": out})
             # "还好/幸好"只对正向记忆成立
             if ans and (valence < 0) and ans[:2] in ("还好", "幸好"):
@@ -485,6 +519,11 @@ def realize(ep, voice, question="", arousal=0.4, valence=0.0, mode="recall",
             ans = voice.say("recall", {"what": out},
                             exclude_prefixes=time_mark_conflict)
         if ans:
+            # §19.3 语气词=认识立场：中置信的陈述句按 1/3 比率收"吧"（求证），
+            # 师长档禁用（语域收敛），已被框架自带语气词结尾的不再叠加
+            if (register != "师长" and 0.55 <= conf < 0.85 and rot % 3 == 1
+                    and not ans.endswith(("吧", "啊", "嘛", "呢", "吗", "？", "！", "。"))):
+                ans = ans.rstrip("。 ") + "吧"
             return ans
     elif mode == "gist":
         ans = voice.say("gist", {"what": out})

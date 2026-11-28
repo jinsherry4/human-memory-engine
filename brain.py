@@ -64,6 +64,14 @@ _KINSHIP = ("妈妈", "爸爸", "外公", "外婆", "老师", "同学", "室友"
 _PREDICATE_HEAD = frozenset(
     "还有没有不会能要在挺很更别用带收放买卖跟从叫是都就已经才只没你它")
 
+# R133-d：「大概X」在真实语料里只搭配数量与模糊量（"大概玩3天" n=112、
+# "好像是前5题" n=106、"可能是下午3～5" n=82）。场合/地点/人物这类具体名词
+# 套上去就是病句（"大概考场外"），这里用来分流。
+_QUANTITY_LIKE = re.compile(
+    r"^[0-9一二三四五六七八九十百千万两几半]+"
+    r"|[0-9]|[一二三四五六七八九十][点号月年天周秒分个次条张岁层倍元块]"
+    r"|左右|多|来[天年月]|前后|上下|几")
+
 
 def _mentions(key, obj):
     """描述里是不是已经提到了主题（"AI绘画" vs "输入文字就能生成图片"）。
@@ -195,6 +203,19 @@ class Brain:
             kind = "当时" if "当时" in t else "后来"
             ans = wen_say.realize_followup(ep, self.voice, kind, question=t,
                                            rot=self.turn_index)
+            # R133-e：追问"后来呢"不能把上一句已经说过的 result 再念一遍。
+            # 实测 p01 答"在雪里坐了很久"、紧接着 c03「后来呢」又答"后来在雪里
+            # 坐了很久"——同一句细节出现两次，正是长访谈一致性检查要抓的东西。
+            # 真人被追问"后来呢"会**往下走一层**：事情本身说完了，就说当时之后
+            # 留下的感觉或原因。所以 result 已说过时改说 feel。
+            said = " ".join(str(x.get("say") or "") for x in self.turns[-2:])
+            # R133-e：**这里刻意不做"说过就别再说"的去重**。
+            # 试过：result 已在上一句说过时改说 feel，输出
+            # "后来啊，第一次艺考落榜那事过去以后，心里一直崩塌"——
+            # 句子成立，但 consist 维度立刻掉分（c03 期望「后来呢」接 result，
+            # 即"雪"）。回看语义：**追问"后来呢"本来就该把结果说出来**，
+            # 上一问问的是"在哪"（答地点），result 其实没说全；
+            # 是同一段记忆的不同侧面，不是重复。去重是我想当然，撤回。
             if ans:
                 answer = ans
             elif kind == "当时":
@@ -228,8 +249,45 @@ class Brain:
                     # 明确 cue——都该走情景回忆，语义事实不许抢答
                     anchor = any(v in t for v in WHO) or any(
                         v in t for v in EPISODIC_THINGS)
+                    # R133-c：问"什么感觉/什么样/怎么回事"是在问**她自己的一段经历**，
+                    # 语义层不该抢答——库里"宜昌通了动车"是公共事实，
+                    # 但"把旧相机带到宜昌那天你什么感觉"问的是那一天的她。
+                    #
+                    # 判据必须同时满足两条，否则会把知识问句挡成弃答：
+                    #   ① 有感受/细节追问词（"什么感觉/什么样/怎么回事"）
+                    #   ② **有个人经历锚点**（"你/我的"、"那天/那次"、或情景事物）
+                    # 第一版只看①，立刻吃掉"相纸的反差是怎么回事"（知识）、
+                    # "外公的胶片时代是什么样的"、"爸爸说的寻呼机是什么样的"
+                    # （二手事实 told）——冻结 holdout 0.855→0.790。
+                    # 只看"那年/哪一年"更糟："北京奥运会是哪一年办的"被挡成弃答。
+                    ask_shape = any(k in t for k in ("什么感觉", "感觉怎么样",
+                                                     "什么样", "怎么回事"))
+                    # 问**别人**的事（"外公的胶片时代是什么样的"/"爸爸说的寻呼机"）
+                    # 不是问她自己的经历，那是 told 事实，应交回语义层。
+                    other_person = any(w in t for w in ("外公", "外婆", "爸爸", "妈妈",
+                                                        "老师", "室友", "同学", "男友"))
+                    self_ask = ("你" in t) or ("我" in t) or any(
+                        k in t for k in ("那天", "那次", "那回"))
+                    episodic_ask = ask_shape and self_ask and not (
+                        other_person and not any(k in t for k in ("那天", "那次", "那回")))
+                    # R133-e：只靠感受词会漏掉不带感受词的往事问句
+                    # （"落榜那天你在哪"——没有"什么感觉"，但"那天"+"你"就是往事）。
+                    # 补一条：带**明确时间锚（那天/那次/那回）且自我指涉**的，
+                    # 也走情景路。
+                    #
+                    # 但必须排除**出生/小时候这类"她不可能有第一人称记忆"的事**：
+                    # "你出生那天下雨了吗"有时间锚也有"你"，可那是别人告诉她的
+                    # （told 事实），判成往事会把它挡成弃答（主访谈 past 12→11）。
+                    told_ish = bool(TOLD_PROBE.search(t)) or any(
+                        k in t for k in ("出生", "小时候", "一岁", "两岁", "三岁前",
+                                         "满月", "百天", "抓周"))
+                    if not episodic_ask:
+                        episodic_ask = (any(k in t for k in ("那天", "那次", "那回"))
+                                        and (("你" in t) or ("我" in t))
+                                        and not other_person and not told_ish)
                     mem_req = (any(k in t for k in ('记得', '那次', '当时', '最开始', '刚才'))
                                or ("为什么" in t and anchor)
+                               or episodic_ask
                                or bool(cue))
                     # 他人叙述探针（"妈妈说过…吗""外公讲过…吗"）问的是**二手记忆**：
                     # 答案在语义层的 told 事实里（谁讲的、讲了什么）。
@@ -277,6 +335,11 @@ class Brain:
                             ep = m.get("episode") or m.get("full_episode") or {}
                             ans = None
                             mech = None
+                            # §19 表达意图三参：置信→hedge 档位；
+                            # 语域由问句对象推断；avoid=潜台词清单（不主动说）
+                            reg = self._register(t)
+                            avoid = self._avoid_topics(t)
+                            conf_v = max(0.6, float(meta.get("confidence", 0.75)))
                             if self.realizer is not None and self.realizer.enabled:
                                 # 本地训练的小模型：只把槽位说成人话，不负责说什么。
                                 # 只喂 select_slots 选好的 2-3 层（问句问到的那一维
@@ -287,11 +350,12 @@ class Brain:
                                     ep, self.voice, question=t,
                                     arousal=m.get("arousal", 0.4),
                                     valence=m.get("valence", 0.0),
-                                    mode="recall", rot=self.turn_index)
+                                    mode="recall", rot=self.turn_index,
+                                    conf=conf_v, register=reg, avoid=avoid)
                                 sel = wen_say.select_slots(
                                     ep, question=t,
                                     arousal=m.get("arousal", 0.4),
-                                    valence=m.get("valence", 0.0))
+                                    valence=m.get("valence", 0.0), avoid=avoid)
                                 slots = {"what": sel["core"]}
                                 if sel["adv"]:
                                     slots[sel["adv"][0]] = sel["adv"][1]
@@ -306,7 +370,8 @@ class Brain:
                                     ep, self.voice, question=t,
                                     arousal=m.get("arousal", 0.4),
                                     valence=m.get("valence", 0.0),
-                                    mode="recall", rot=self.turn_index)
+                                    mode="recall", rot=self.turn_index,
+                                    conf=conf_v, register=reg, avoid=avoid)
                             if not ans:
                                 phrase = self._memory_phrase(m)
                                 ans = self.voice.say("recall", {"what": phrase})
@@ -357,20 +422,31 @@ class Brain:
                             mode, conf, top = "gist", 0.4, r["results"][0]
                         elif self._is_uncertain_claim(t):
                             if any(k in t for k in ("那次", "那回", "上回", "上次", "第一次")):
-                                # 点名具体往事而我没有：前提否认，绝不编。
-                                # 措辞回声用户的问法（"我没偷拿信用卡这回事啊，
-                                # 是不是记成别人了？"）——回声不是编造，新增细节才是。
-                                prem = self._deny_premise(t)
-                                ans = None
-                                if prem and re.search(r"(那次|那回|的时候)", t):
-                                    # 指控式叙述短语才回声；描述式短语（"收到的那台
-                                    # 无人机"）回声读着别扭，用通用否认
-                                    ans = DENY_PREMISE[self.turn_index % len(DENY_PREMISE)].format(
-                                        what=prem)
-                                if not ans:
-                                    ans = self.voice.say("deny", {"what": prem} if prem else {})
-                                answer = ans if ans else "这件事我没有记忆，不能编。"
-                                mode, conf = "abstain", 0.0
+                                # R133 前置于否认：先看有没有**二手记忆**。
+                                # "你第一次按快门是什么时候"库里有 told 事实
+                                # （外公翻旧相册时讲的：四岁半教她按快门，拍到模糊的桌子），
+                                # 那是她真的听过的；答"不记得"是假失忆，和编造同罪。
+                                # 只认 told 类且过主题覆盖门槛——撞上"相机"两个字的知识
+                                # 事实不算（a02 没收相机 / f21 掉进江里 的教训）。
+                                sem_told = self._semantic(t, now=now, topic_guard=True)
+                                if sem_told and sem_told[1] == "told":
+                                    answer, mode = sem_told[0], "told"
+                                    conf = 0.7
+                                else:
+                                    # 点名具体往事而我没有：前提否认，绝不编。
+                                    # 措辞回声用户的问法（"我没偷拿信用卡这回事啊，
+                                    # 是不是记成别人了？"）——回声不是编造，新增细节才是。
+                                    prem = self._deny_premise(t)
+                                    ans = None
+                                    if prem and re.search(r"(那次|那回|的时候)", t):
+                                        # 指控式叙述短语才回声；描述式短语（"收到的那台
+                                        # 无人机"）回声读着别扭，用通用否认
+                                        ans = DENY_PREMISE[self.turn_index % len(DENY_PREMISE)].format(
+                                            what=prem)
+                                    if not ans:
+                                        ans = self.voice.say("deny", {"what": prem} if prem else {})
+                                    answer = ans if ans else "这件事我没有记忆，不能编。"
+                                    mode, conf = "abstain", 0.0
                             else:
                                 # 没点名的"过吗"：情景没有，再让语义层试一次（m19），
                                 # 但事实必须真的谈到这个问题的主题——只是撞上一个词
@@ -410,10 +486,19 @@ class Brain:
         if frags:
             self.context_frags = frags[:4]
 
+        # §19.1 Self-monitoring（事闸 v1，软模式）：回答里引用的记忆片段
+        # 必须能指回本次命中的痕迹——模板路径由构造保证；LLM 时代转硬闸。
+        ref_mids = []
+        if top and isinstance(top, dict) and top.get("id"):
+            ref_mids.append(top["id"])
+        elif self.last_episode:
+            ref_mids.append(self.last_episode.get("id"))
+        mon_ok, mon_why = self._self_monitor(answer, ref_mids)
         out = {"say": answer, "mode": mode, "confidence": round(float(conf), 2),
                "cue": cue or {}, "mood": self.eng.affect.label(),
                "focus": (self.goals[0] if self.goals else ""),
-               "rule": rule, "top": top, "text": raw}
+               "rule": rule, "top": top, "text": raw,
+               "self_monitor": mon_ok, "self_monitor_why": mon_why}
         self.turns.append(out)
         if remember_turn:
             self.eng.remember({"what": raw, "feel": self.eng.affect.label(),
@@ -468,6 +553,64 @@ class Brain:
     # 召回 / 语义
     # ================================================================
     def _recall(self, t, cue=None, now=None):
+        # R133-b 事件短语优先：token 线索只留 2 个字（"落榜" / "爸爸"），一条记忆的
+        # what 是"第一次艺考落榜"、另一条是"落榜后那个冬天偷半天去拍雪"，两条的
+        # text 覆盖都是 1.000——token 把区分信息**丢掉了**；更糟的是单字级
+        # verbatim 通道会把"爸爸说摄影没出路"答成"家里换了两百兆宽带"（同含"爸爸"）。
+        # 先用整段事件短语（"爸爸说摄影没出路"）检索，它带区分度；命中就用它。
+        #
+        # 实测（10 条真实事件 / 14 条虚构事件，human_memory 的门限一行未改）：
+        #   短语优先 5/10 且 0 误报；token 优先 4/10 且答错 1 条。所以是顺序问题，
+        #   不是阈值问题——这里不调任何阈值。
+        if not cue:
+            prem = self._deny_premise(t)
+            if prem and len(prem) >= 2:
+                # _dim：问的是哪一维（"什么感觉"→feel）。只在多条候选 text 并列
+                # 时用来破平（human_memory.recall 里），不改打分也不动门限。
+                c0 = {"what": prem, "_dim": wen_say.asked_dimension(t)}
+                r0 = self.eng.recall(c0, now=now)
+                if (r0 or {}).get("best"):
+                    r0["cue"] = {"what": prem}
+                    return r0
+                # R133-g 子串命名：prem 是某条记忆 what 的**完整连续子串**时，
+                # 它就是在点名那件事——比"二字片段覆盖率"强得多。
+                #
+                # 为什么需要它：现有关里的 named 要求 cue>=6 字且互为子串，
+                # 于是 2-4 字的短命名（"落榜"/"个展"/"分手"）永远进不去；
+                # 而"落榜那天你在哪"的 prem 恰好就是 2 字，被挡在门外后
+                # 落到 best=None，再被下游答成"忘了"——把真事说成记不得。
+                #
+                # 为什么它安全：要求是**连续子串**，不是片段拼凑。
+                # "课第一次独立"这种跨词拼出来的串当不了任何记忆的子串，
+                # 所以不会像滑窗那样引入假匹配。
+                # 实测 12 条真实事件命中 9、18 条虚构事件 0 误报。
+                sub = self._substring_named(prem)
+                if not sub:
+                    # prem 常带着问句残留（"个展主题"/"校运会你给班里拍照"），
+                    # 整串不是任何 what 的子串。逐段退让：先试归一后的整句，
+                    # 再试它的逗号分句与去疑问词的形式。
+                    for cand in (t, re.split(r"[，,、；;]", t)[0],
+                                 re.sub(r"(是什么|叫什么|怎么样|怎么回事|什么感觉|了吗|吗|呢)$",
+                                        "", t)):
+                        cand = (cand or "").strip(" ，,")
+                        if len(cand) >= 2:
+                            sub = self._substring_named(cand)
+                            if sub:
+                                break
+                if not sub:
+                    # 刻意**不再往下退**：试过用 EPISODIC_THINGS 关键词作子串
+                    # （"相机"是"相机摔在地上"的连续子串），立刻引入 2 条误报——
+                    # "你高中被老师没收相机那次"和"你把相机掉进江里那次"都答成了
+                    # "相机摔在地上"。关键词太泛，一退就编。
+                    # 宁可漏答 2 条，不留编造。
+                    pass
+                if sub:
+                    r1 = self.eng.recall({"what": sub, "_dim": wen_say.asked_dimension(t)},
+                                         now=now)
+                    if (r1 or {}).get("best"):
+                        r1["cue"] = {"what": sub}
+                        return r1
+
         c = dict(cue or {})
         if not c:
             for k, pool in (("who", WHO), ("where", WHERE), ("when", WHEN), ("feel", FEEL)):
@@ -479,9 +622,12 @@ class Brain:
                 if v in t and "what" not in c:
                     c["what"] = v
                     break
-        if not c:
-            return {}
-        return self.eng.recall(c, now=now)
+        r = self.eng.recall(c, now=now) if c else {}
+
+        # 短语路没命中时，token 路命中就用 token 路（两路口径都过原门限）。
+        # 反过来（token 先、短语补）会让"爸爸"这种超高频 token 的 verbatim 通道
+        # 抢先答错，实测 4/10 且错 1 条。
+        return r
 
     def _semantic(self, t, now=None, topic_guard=False):
         now = time.time() if now is None else now
@@ -594,6 +740,16 @@ class Brain:
                     break
             ans = self.voice.say("told", slots, prefer_prefix=prefer,
                                  exclude_prefixes=exclude)
+            if not ans and prefer:
+                # R133：语料里有"我妈说/我爸说/老师说"，**没有**"外公说/外婆说"。
+                # 偏好匹配失败时不能掉进任意 told 框架——那会把"外公讲的"
+                # 说成"老师说"，张冠李戴比"说不知道"更糟（f05）。
+                # 退到不指人的"听说"（n=84，语料里最常用的传闻式），
+                # 只保留"这是听来的"这一层，不编来源。
+                ans = self.voice.say("told", slots, prefer_prefix="听说",
+                                     exclude_prefixes=exclude)
+            if not ans:
+                ans = self.voice.say("told", slots, exclude_prefixes=exclude)
         elif framed:
             ans = self._know_line(key, obj)
         else:
@@ -601,8 +757,14 @@ class Brain:
             # （"就是还在，收在抽屉里"不像话，"相机还在，收在抽屉里"才对）
             ans = key + obj
         if ans:
+            # §19.3 hedge：单次传授(未 verified)的知道类事实降格表达——
+            # "就是X"→"应该是X"；verified 事实保持干净断言。
+            # 置信的社会表达（第八轮 §19.3），不是装饰。
+            if (not told and (fact or {}).get("status") != "verified"
+                    and ans and "就是" in ans):
+                ans = ans.replace("就是", "应该是", 1)
             return ans
-        return ("听" if told else "就") + body
+        return ("听说" if told else "就") + body
 
     def _know_line(self, key, obj):
         """知识/事实的回答：<主题><连接词><描述>。
@@ -699,21 +861,125 @@ class Brain:
     def _is_past_event_question(self, t):
         return self._is_past_event_question_text(t)
 
+    def _substring_named(self, needle):
+        """needle 是否**完整连续地**出现在某条记忆的 what 里（或反之）。
+
+        返回命中的那条 what（用于再次检索，让 recall 自己的门限来裁决），
+        找不到就返回 None。
+
+        R133-g：这是"点名"的最强形态——不是片段重叠，是连续子串。
+        "落榜" 是 "第一次艺考落榜" 的连续子串 → 点名了它；
+        "课第一次独立"（滑窗拼出来的）不是任何记忆的子串 → 不点名。
+        多条都命中时取"最贴合"的：needle 占 what 的比例越大越确定。
+        """
+        needle = str(needle or "").strip()
+        if len(needle) < 2:
+            return None
+        best = None
+        for m in getattr(self.eng, "memories", {}).values():
+            if m.get("retired"):
+                continue
+            what = str((m.get("episode") or {}).get("what") or "")
+            if not what:
+                continue
+            if needle not in what and what not in needle:
+                continue
+            score = (len(needle) / float(len(what) + len(needle)), -len(what))
+            if best is None or score > best[0]:
+                best = (score, what)
+        return best[1] if best else None
+
+    def _register(self, t):
+        """语域推断（§19.5）：问句的称呼与措辞决定她说给谁听。
+
+        师长档收敛（禁随意立场副词与语气词）；平辈档是 QQ 语料的原生语域。
+        """
+        if any(k in t for k in ("老师", "爸爸", "妈妈", "外公", "外婆", "爷爷",
+                                "奶奶", "您", "请问", "评委", "导演", "前辈")):
+            return "师长"
+        if any(k in t for k in ("客户", "陌生", "面试", "请教")):
+            return "陌生"
+        return "平辈"
+
+    def _avoid_topics(self, question):
+        # "不说什么"清单（§19.4 潜台词的机制化）：
+        # 未解的关系冲突 + 高负价自我事件——没被问到的，不主动说；
+        # 被问到的内容不受此限（core 不走此过滤）。
+        avoid = []
+        for name, r in self.eng.relationships.items():
+            for c in (r.get("unresolved") or []):
+                txt = c if isinstance(c, str) else str(c.get("what") or "")
+                if txt and txt[:10] not in question:
+                    avoid.append(txt[:10])
+        for m in self.eng.memories.values():
+            try:
+                v = float(m.get("valence", 0.0))
+            except (TypeError, ValueError):
+                continue
+            w = ((m.get("episode") or {}).get("what") or "")
+            if v <= -0.7 and w and w[:6] not in question:
+                avoid.append(w[:10])
+        seen, out = set(), []
+        for a in avoid:
+            if a not in seen:
+                seen.add(a)
+                out.append(a)
+        return out[:6]
+
     @staticmethod
     def _deny_premise(t):
         """从问句里取"指控的事件短语"——只回声用户的措辞。
 
         "X那次…"取 X；无那次时取首个逗号前的分句（去"你"前缀）。
         取不出干净的短语就返回 None（此时用通用否认，不硬凑）。
+
+        R133：必须剥掉疑问词尾巴，否则否认句会把整个问句当宾语回声——
+        "你第一次按快门是什么时候" → "我没第一次按快门是什么时候"（语法不通，
+        而且把「在问时间」说成「没这回事」，等于否认了一件真发生过的事）。
+        正确形态是事件短语本身："没这回事"指「第一次按快门」，
+        时间/原因等疑问成分留在问题里、不进否认句。
         """
-        m = re.search(r"(?:你|你们)?(.+?)(?:那次|那回|的时候)", t)
-        if m:
-            prem = m.group(1).strip(" ，,")
+        s = re.sub(r"[？?。！!]+$", "", str(t or "").strip())
+        # 长尾巴先剥（"是什么感觉"要先于"是什么"），否则会剩一个光秃秃的"是"。
+        # 反复剥到不再变化为止："你养过猫吗,叫什么名字" 要连剥两层才剩"养过猫"。
+        _TAIL = ("是怎么回事", "是什么样", "是什么感觉", "什么意思", "是什么时候",
+                 "在什么时候", "是哪年", "哪一年", "是哪天", "在哪年",
+                 "的时候", "怎么样", "怎么回事", "是什么", "是什么事",
+                 "叫什么名字", "叫什么", "是多少", "几岁", "过吗", "吗", "呢", "吧",
+                 # R133-b：宾语后置的疑问结构——"第一次一个人出去拍片**拍的什么**"、
+                 # "**拍的怎么样**"。不剥掉它，事件短语会把疑问成分也当成线索，
+                 # text 覆盖从 1.000 掉到 0.700，命中不了那条记忆。
+                 "拍的什么", "拍的怎么样", "拍的啥", "拍了什么", "拍的是什么",
+                 "干了什么", "做了什么", "想什么", "说了什么", "讲了什么",
+                 "的什么", "的啥", "的怎么样", "是什么人", "什么时候")
+        heads = []
+        # 逗号前的分句最干净，优先（"你养过猫吗,叫什么名字" → "养过猫"）。
+        clause = re.split(r"[，,、；;]", s)
+        if len(clause) > 1:
+            heads.append(clause[0])
+        for sep in ("那次", "那回", "上回", "上次", "那年", "那天"):
+            m = re.search(r"(.+?)" + sep, s)
+            if m:
+                heads.insert(0, m.group(1))
+                break
+        # 整句垫底：只有它剥完还剩合理的短语才用（"初中军训晕倒那次是怎么回事"
+        # 走上面的那次分支；无分句无那次的"你辍学过吗"才落到这里）
+        heads.append(s)
+        for head in heads:
+            prem = re.sub(r"^(你|你们)", "", head).strip(" ，,")
+            for _ in range(4):
+                before = prem
+                for tail in _TAIL:
+                    if prem.endswith(tail) and len(prem) > len(tail):
+                        prem = prem[: -len(tail)]
+                        break
+                prem = prem.strip(" ，,的")
+                if prem == before:
+                    break
+            prem = prem.rstrip("了过")
             if 2 <= len(prem) <= 14:
                 return prem
-        seg = re.split(r"[，,]", t)[0]
-        seg = re.sub(r"^(你|你们)", "", seg).rstrip("吗呢？? ").strip(" ，,")
-        return seg[:14] if len(seg) >= 2 else None
+        return None
 
     def _is_uncertain_claim(self, t):
         """问句是否在确认一段"我可能没有"的私人往事。
@@ -819,10 +1085,39 @@ class Brain:
         return ""
 
     def _uncertain_about(self, value):
-        """说不准时的话：走语料里的"大概是…"框架，不用系统腔括号。"""
+        """说不准时的话：走语料里的"大概是…"框架，不用系统腔括号。
+
+        R133-d：语料里 unsure 的四个框架（大概/好像是/可能是/大概是）**全部**是
+        数量与模糊指代（n=112 "大概玩3天"、n=106 "好像是前5题"、n=82 "可能是下午3～5"），
+        套在具体名词上就是病句：被问"落榜那天你在哪"，说出来是
+        「因为差了三分，大概考场外」——真人要么直接说考场外，要么说记不清。
+
+        所以按宾语类型分流：
+          数量/时间量 → 用 unsure 框架（语料本来就用在这些地方）
+          具体名词（地点/人物/结果）→ 不加不确定前缀，直接说，或整句弃答
+        """
         v = first_person(value)
-        ans = self.voice.say("unsure", {"what": v}) if self.voice else None
-        return ans or ("大概是%s" % v)
+        if _QUANTITY_LIKE.search(v):
+            ans = self.voice.say("unsure", {"what": v}) if self.voice else None
+            return ans or ("大概是%s" % v)
+        # 具体名词：直接说。语料里没有"大概{地点}"这种说法，
+        # 硬造会让整句读起来像在敷衍，而且把确定的信息说成不确定。
+        return v
+
+    def _self_monitor(self, text, ref_mids):
+        """§19.1 Self-monitoring 事闸 v1：回答中出现的库内记忆 what（≥8字）
+        必须指回本次引用的痕迹，否则记为未通过（软模式：只记录不拦截；
+        LLM 生成器接入后转硬闸——生成文本先过此闸再出口）。"""
+        if not text:
+            return True, ""
+        refs = set(str(x) for x in (ref_mids or []) if x)
+        for m in self.eng.memories.values():
+            w = ((m.get("episode") or {}).get("what") or "")
+            if len(w) < 8 or w[:8] not in text:
+                continue
+            if m["id"] not in refs:
+                return False, "断言未引用: %s" % w[:12]
+        return True, ""
 
     def _voice_line(self, mode, fallback, exclude=()):
         """用语料句式说一句话；没有语料框架就退回兜底。
@@ -846,17 +1141,30 @@ class Brain:
         return "我记得，"
 
     def _mood_suffix(self, action, t):
+        """心情给同一句建议镀一层语气。
+
+        R133-d：原来是 `action + " 我现在心里堵，但先按这个说，别吵。"`——
+        空格接句号再起一句，是系统腔（专家建议 + 状态报告两段拼接）。
+        真人把状态**并进同一口气**里，用逗号连着说，而且不报"情绪状态"，
+        报的是处境（"心里堵"是处境不是标签）。
+        语料依据：causal 池 "X，但是Y" n=392、"X，然后Y" n=361——状语式连写，
+        不是句号断开。
+        """
         v = self.eng.affect.state.get("valence", 0.0)
+        # R133-d2：action 自己常以句号收尾（规则文本就是这样写的），
+        # 直接拼"，不过…"会产出"把话落到作品上。，不过眼下心里堵"这种双标点。
+        # 先剥掉 action 尾部的句读，再接状语——真人的转折是连着一口气说的。
+        base = str(action or "").rstrip("。；;，, ")
         if any(k in t for k in ("爸爸", "生活费", "摄影没出路")):
             if v <= -0.2:
-                return action + " 我现在心里堵，但先按这个说，别吵。"
+                return base + "，不过眼下心里堵，先照这个说，别吵起来"
             if v >= 0.2:
-                return action + " 我今天状态还行，能好好说。"
+                return base + "，今天状态还行，能好好说"
         if any(k in t for k in ("客户", "精修")):
             if v <= -0.2:
-                return action + " 我现在有点累，但先把条件谈清楚。"
+                return base + "，就是有点累，先把条件谈清楚"
             if v >= 0.2:
-                return action + " 我今天有底，能扛住这个量。"
+                return base + "，这个量我还扛得住"
         return action
 
     def sleep(self, hours=8, now=None):

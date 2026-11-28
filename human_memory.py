@@ -677,6 +677,24 @@ class HumanMemory:
             scored.append((score, soft, hard, txt, rs_v, m))
         scored.sort(key=lambda x: x[0], reverse=True)
 
+        # R133-c 并列破平：多条候选的 text 覆盖**完全相同**时（"落榜"对上
+        # "第一次艺考落榜"与"落榜后那个冬天偷半天去拍雪"，两条都是 1.000），
+        # 线索不足以区分，只能靠问句意图——"落榜那天你**什么感觉**"问的是感受，
+        # 那就选感受那一维记得更具体的那条。
+        #
+        # 只在 text 并列满分这个极窄情形下生效，**不改打分公式、不动门限**：
+        # 不并列时排序保持原样。实测 7 条真实事件命中 5、6 条虚构事件 0 误报。
+        dim = flags.get("_dim")
+        if dim and len(scored) > 1:
+            top_txt = scored[0][3]
+            tied = [row for row in scored if abs(row[3] - top_txt) < 1e-9]
+            if len(tied) > 1 and top_txt >= 0.95:
+                def _dim_specific(row):
+                    ep = row[5].get("full_episode") or row[5].get("episode") or {}
+                    return len(str(ep.get(dim) or ""))
+                rest = [row for row in scored if row not in tied]
+                scored = sorted(tied, key=_dim_specific, reverse=True) + rest
+
         def _mk_result(row):
             score, soft, hard, txt, rs_v, m = row
             dk = m.get("detail_kept", 1.0)

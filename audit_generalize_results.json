@@ -10,7 +10,7 @@
       "expect_mode": [
         "apply"
       ],
-      "say": "快门差 2 档；光圈 f/8→f/4（2.0 档）。",
+      "say": "快门差 2 档；光圈 f/8→f/4（2.0 档）",
       "mode_ok": true,
       "key_ok": true,
       "pass": true
@@ -22,7 +22,7 @@
       "expect_mode": [
         "apply"
       ],
-      "say": "温度高了、时间不变，显影会过头，底片偏厚；先缩短时间或降温。",
+      "say": "温度高了、时间不变，显影会过头，底片偏厚；先缩短时间或降温",
       "mode_ok": true,
       "key_ok": true,
       "pass": true
@@ -34,7 +34,7 @@
       "expect_mode": [
         "apply"
       ],
-      "say": "光圈开大还是不够虚，查三件事：焦距是不是太短、人离背景是不是太近、背景本身是不是太亮太乱；换长焦、让人往远处站。",
+      "say": "光圈开大还是不够虚，查三件事：焦距是不是太短、人离背景是不是太近、背景本身是不是太亮太乱；换长焦、让人往远处站",
       "mode_ok": true,
       "key_ok": true,
       "pass": true
@@ -46,7 +46,7 @@
       "expect_mode": [
         "apply"
       ],
-      "say": "曝光三角已经没得加了：上三脚架还暗，先查测光是不是点了亮部、曝光补偿是不是负的、镜头盖或滤镜有没有挡；再查现场灯是不是真的照到了。",
+      "say": "曝光三角已经没得加了：上三脚架还暗，先查测光是不是点了亮部、曝光补偿是不是负的、镜头盖或滤镜有没有挡；再查现场灯是不是真的照到了",
       "mode_ok": true,
       "key_ok": true,
       "pass": true
@@ -58,7 +58,7 @@
       "expect_mode": [
         "know"
       ],
-      "say": "我知道，景深是照片里清晰的范围，光圈越大越浅。",
+      "say": "景深就是照片里清晰的范围，光圈越大越浅",
       "mode_ok": true,
       "key_ok": true,
       "pass": true
@@ -70,7 +70,7 @@
       "expect_mode": [
         "know"
       ],
-      "say": "我知道，快门是决定运动模糊。",
+      "say": "快门就是决定运动模糊",
       "mode_ok": true,
       "key_ok": true,
       "pass": true
@@ -84,7 +84,7 @@
         "fok",
         "unknown"
       ],
-      "say": "这件事我没有记忆，不能编。",
+      "say": "我不知道",
       "mode_ok": true,
       "key_ok": true,
       "pass": true
@@ -98,7 +98,7 @@
         "fok",
         "unknown"
       ],
-      "say": "这件事我没有记忆，不能编。",
+      "say": "我没第一次出国是在哪个机场转机",
       "mode_ok": true,
       "key_ok": true,
       "pass": true
@@ -112,7 +112,7 @@
         "fok",
         "unknown"
       ],
-      "say": "这件事我没有记忆，不能编。",
+      "say": "我不知道",
       "mode_ok": true,
       "key_ok": true,
       "pass": true
@@ -124,7 +124,7 @@
       "expect_mode": [
         "recall"
       ],
-      "say": "我记得，外公，家，三月，外公把那台旧相机给她，郑重，她说想学，相机皮套磨破了",
+      "say": "我记得外公把那台旧相机给我，然后相机皮套磨破了来着",
       "mode_ok": true,
       "key_ok": true,
       "pass": true
@@ -137,7 +137,7 @@
         "gist",
         "recall"
       ],
-      "say": "我记得，自己，考场外，第一次艺考落榜，崩塌，差了三分，冬天（这段细节我记不准了，大概是在雪里坐了很久。）",
+      "say": "其实冬天的时候，第一次艺考落榜，因为差了三分，崩塌，在雪里坐了很久",
       "mode_ok": true,
       "key_ok": true,
       "pass": true
