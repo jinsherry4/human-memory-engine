@@ -39,6 +39,17 @@ WHEN = ("深夜", "夜里", "晚上", "傍晚", "下午", "早上", "春天", "�
 FEEL = ("崩塌", "心疼", "委屈", "害怕", "专注", "骄傲", "空虚", "空",
         "紧张", "震动", "笃定", "不甘心", "心酸", "狂喜", "舍不得",
         "发抖", "踏实", "暖", "新", "闷", "松", "乱", "压")
+# 会话修复（DS-COMM-01 第六章，用户提供 2026-11-28）：
+# 用户纠正她的回答时——识别、修订痕迹（rehearse）、具体承认，不辩护。
+CORRECTION_MARK = re.compile(
+    r"(你说的不对|说错了|记错[了过]|不是这样的|弄反了|理解错|不是这个意思)")
+
+# 陪伴模式触发词（DS-COMM-01 第四章 4.4：陪伴与解决是两种模式，
+# 由真实会话信号切换）：陈述句（非问句）里出现这些情绪词且不携带
+# 装备约束时，先接住，不给方案、不病理化、不强行追问。
+EMPATHY_FEEL = ("累", "烦", "困", "委屈", "开心", "高兴", "兴奋",
+                "紧张", "焦虑", "难受", "不爽", "难过", "崩溃")
+
 # L3 前提否认：点名具体往事而我没有时，回声用户的措辞来否认前提——
 # 只回声、不新增内容（来源监控的诚实边界，§10 Johnson）。
 DENY_PREMISE = ("我没{what}这回事啊，你是不是记成别人了？",
@@ -137,6 +148,9 @@ class Brain:
         # §18.4 change-of-mind：上一轮的元认知评语与情景锚点
         self._last_meta = None
         self._last_anchor = None
+        # DS-COMM-01：会话模式连续性（陪伴链）与纠正的目标轮次
+        self._last_mode = None
+        self.last_episode_turn = -99
         # 闲聊经验：每次对话轮次累积，影响说话方式
         self.casualness = 0.0
         # 真实聊天语料驱动的句式库（chat_voice.json）。没有语料时全部退回旧模板。
@@ -157,7 +171,28 @@ class Brain:
 
         fresh_rule = (self.last_rule_name
                       and self.turn_index - self.last_rule_turn <= CONFIRM_WINDOW)
-        if self._is_confirmation(t) and fresh_rule:
+        # 会话修复（DS-COMM-01 第六章）：用户纠正→rehearse 修订痕迹→具体承认。
+        # 只在上一轮有情景记忆时触发；无目标时不硬认（教材 5.3：对方记错时
+        # 用证据澄清，不虚假认错）。
+        corr_text = None
+        if (self.last_episode and CORRECTION_MARK.search(t)
+                and self.turn_index - self.last_episode_turn <= 2):
+            # 目标相关性门：纠正必须紧跟她的回答（2 轮内）——
+            # 否则任何"你说的不对"都会写进无关记忆（cortisol 教训）
+            corr_text = self._correction_content(t)
+        if corr_text is not None:
+            mid = self.last_episode.get("id")
+            ep = (self.last_episode.get("full_episode")
+                  or self.last_episode.get("episode") or {})
+            corr_ep = dict(ep)
+            corr_ep["result"] = "（更正）" + corr_text
+            self.eng.rehearse(mid, False, correction=corr_ep, now=now)
+            answer = "对，是%s。我刚才记岔了。" % corr_text
+            mode, conf = "repair", 0.8
+            rule = None
+            self.last_rule_name = None
+            self.last_episode_turn = self.turn_index
+        elif self._is_confirmation(t) and fresh_rule:
             rule = self.eng.confirm_rule(self.last_rule_name, event="t%d" % self.turn_index)
             answer = "那就好，这条我记住了。"
             mode, conf = "confirm", 0.9
@@ -233,6 +268,21 @@ class Brain:
             answer = "现在最想拍的是%s。" % (self.goals[0] if self.goals else "毕业创作")
             mode, conf = "focus", 0.8
         else:
+            # 陪伴模式（DS-COMM-01 第四章 4.4）：情绪陈述句先接住——
+            # 不给方案、不追问、不病理化；装备陈述不受此限（走原路径）
+            feel_hit = self._empathy_statement(t)
+            if feel_hit:
+                answer = self._empathy_reply(t, feel_hit)
+                mode, conf = "empathy", 0.5
+                out = {"say": answer, "mode": mode,
+                       "confidence": round(float(conf), 2),
+                       "cue": cue or {}, "mood": self.eng.affect.label(),
+                       "focus": (self.goals[0] if self.goals else ""),
+                       "rule": None, "top": None, "text": raw}
+                self.turns.append(out)
+                self._last_mode = "empathy"
+                self.last_user_text = raw
+                return out
             merged = self._merge_context(t)
             plan = self._practice_plan(merged)
             if plan:
@@ -386,6 +436,7 @@ class Brain:
                                 answer += suffix
                             mode, conf, top = "recall", max(0.6, meta["confidence"]), r["results"][0]
                             self.last_episode = m
+                            self.last_episode_turn = self.turn_index
                             # §4 GNW：被提取的内容进全局工作空间参与竞争/点火
                             ep_text = self._episode_text(m)
                             self.eng.wm_push(
@@ -505,6 +556,7 @@ class Brain:
                                "why": "对话", "result": answer[:80]},
                               arousal=self.eng.affect.state.get("arousal", 0.3),
                               note="对话", now=now, source="told")
+        self._last_mode = mode
         self.last_user_text = raw
         return out
 
@@ -925,6 +977,45 @@ class Brain:
                 seen.add(a)
                 out.append(a)
         return out[:6]
+
+    @staticmethod
+    def _correction_content(t):
+        """从纠正句里取更正内容（回声用户措辞，不新增事实）。"""
+        m = re.search(r"[，,]?(?:其实|应该是|正确的是|是)([^。？?！!]{2,20})"
+                      r"[。？?]?$", t)
+        if m:
+            return m.group(1).strip(" ，。")
+        return t[-16:].strip(" ，。")
+
+    def _empathy_statement(self, t):
+        """陈述句（非问句）+ 情绪词 + 非装备陈述 → 陪伴模式触发。
+
+        陪伴链上（上一轮也是陪伴）的后续陈述进入"继续听"状态——
+        最小确认即可（Clark 接地第二步），不追问、不接方案。
+        """
+        if QUESTION_MARK.search(t):
+            return None
+        if CONSTRAINT_KEY.search(t):
+            return None
+        if self._is_confirmation(t) or CORRECTION_MARK.search(t):
+            return None
+        if self._last_mode == "empathy":
+            return "倾听"
+        for w in EMPATHY_FEEL:
+            if w in t:
+                return w
+        return None
+
+    @staticmethod
+    def _empathy_reply(t, feel):
+        """陪伴回应：短、承接具体事、不延伸不给方案（教材 2.4/4.4）。"""
+        if feel == "倾听":
+            return "嗯。"
+        if feel in ("累", "困"):
+            return "嗯，那就先歇会儿，别硬撑。"
+        if feel in ("开心", "高兴", "兴奋"):
+            return "听起来是好事啊。"
+        return "嗯，是挺%s的。" % feel
 
     @staticmethod
     def _deny_premise(t):
